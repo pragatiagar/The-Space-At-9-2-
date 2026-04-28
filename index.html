@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Space at 9/2 — Resource Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #F7F5F0;
+    color: #1A1917;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: #EDEBE5; }
+  ::-webkit-scrollbar-thumb { background: #C9A96E; border-radius: 2px; }
+  button { font-family: inherit; }
+  select { font-family: inherit; }
+  input  { font-family: inherit; }
+  input::placeholder { color: #ABA49C; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+const { useState, useMemo, useEffect, useRef } = React;
+
+/* ═══════════════════════════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════════════════════════ */
+const T = {
+  bg:         '#F7F5F0',
+  bgAlt:      '#EDEBE5',
+  surface:    '#FFFFFF',
+  border:     '#E0DDD6',
+  borderHair: '#EDEAE4',
+
+  text1: '#1A1917',
+  text2: '#6B6560',
+  text3: '#ABA49C',
+
+  accent:   '#C9A96E',
+  accentBg: '#F7F0DE',
+
+  overload: '#B24B43',
+  overBg:   '#F9EEEC',
+  optimal:  '#4E7A5A',
+  optBg:    '#EBF3EC',
+  under:    '#5B7A99',
+  underBg:  '#EBF0F6',
+
+  maxed:    '#B24B43',
+  maxedBg:  '#F9EEEC',
+  partial:  '#8B6914',
+  partBg:   '#FBF5E6',
+  avail:    '#4E7A5A',
+  availBg:  '#EBF3EC',
+
+  rising:   '#7B6FAB',
+  risingBg: '#F2EEFF',
+  critical: '#C4894A',
+  critBg:   '#FAF0E6',
+  sm:       '#4E8A88',
+  smBg:     '#EAF3F3',
+  upcoming: '#7B8EA0',
+  upBg:     '#EEF2F5',
+
+  serif: "'Playfair Display', Georgia, serif",
+  sans:  "'Inter', -apple-system, sans-serif",
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   EDIT OPTION LISTS
+═══════════════════════════════════════════════════════════════ */
+const STATUS_OPTS  = ['Active','Slow','Production','Small Task','Research','Upcoming','On Hold','Closed'];
+const EFFORT_OPTS  = [
+  ['none','None'], ['very_low','Very Low'], ['low','Low'],
+  ['medium','Medium'], ['medium_high','Medium–High'], ['high','High'], ['upcoming','Upcoming'],
+];
+const TYPE_OPTS    = [
+  ['design_work','Design Work'], ['strategy','Strategy'], ['oversight','Oversight'],
+  ['content','Content'], ['operations','Operations'], ['light','Support'],
+];
+const EFFORT_BL    = { none:0, very_low:6, low:11, medium:20, medium_high:25, high:32, upcoming:0 };
+
+/* ═══════════════════════════════════════════════════════════════
+   TEAM DATA
+═══════════════════════════════════════════════════════════════ */
+const INITIAL_TEAM = [
+  { id:'anahita', name:'Anahita Kayan',       role:'Founder & Creative Director', city:'Studio',   isFounder:true,  isCritical:true,  availOverride:null    },
+  { id:'mugdha',  name:'Mugdha Palit',         role:'Senior Designer',             city:'Calcutta', isFounder:false, isCritical:false, availOverride:null    },
+  { id:'shristi', name:'Shristi Sharma',       role:'Senior Designer',             city:'Mumbai',   isFounder:false, isCritical:false, availOverride:null    },
+  { id:'anushka', name:'Anushka Subramaniam',  role:'Senior Strategist',           city:'Mumbai',   isFounder:false, isCritical:false, availOverride:null    },
+  { id:'pragati', name:'Pragati Todi',         role:'Strategist',                  city:'Calcutta', isFounder:false, isCritical:true,  availOverride:null    },
+  { id:'meghna',  name:'Meghna Bhadra',        role:'Mid-Level Designer',          city:'Calcutta', isFounder:false, isCritical:false, availOverride:null    },
+  { id:'sakhi',   name:'Sakhi Samant',         role:'Mid-Level Designer',          city:'Mumbai',   isFounder:false, isCritical:false, availOverride:null    },
+  { id:'shruti',  name:'Shruti Kataria',       role:'Junior Designer',             city:'Mumbai',   isFounder:false, isCritical:false, availOverride:'maxed' },
+  { id:'disha',   name:'Disha Bhattacharya',   role:'Junior Designer',             city:'Calcutta', isFounder:false, isCritical:false, availOverride:'maxed' },
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   STATUS MULTIPLIERS
+═══════════════════════════════════════════════════════════════ */
+const STATUS_MX = {
+  'Active':1.0, 'Slow':0.4, 'Production':0.2,
+  'Small Task':0.3, 'Research':1.0,
+  'Upcoming':0, 'On Hold':0, 'Closed':0,
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   PROJECT DATA
+═══════════════════════════════════════════════════════════════ */
+const INITIAL_PROJECTS = [
+  // ── ON HOLD / CLOSED ─────────────────────────────────────────
+  {
+    id:'divya', name:'Divya Sheth', category:'Branding & VI', status:'On Hold',
+    contributors:{}, assignedMembers:['mugdha','shristi'],
+  },
+  {
+    id:'cecilia_art', name:'Cecilia Ramos', category:'Art Exhibit', status:'Closed',
+    contributors:{}, assignedMembers:['mugdha','meghna','shristi'],
+  },
+  {
+    id:'odyssey', name:'Odyssey', category:'Brand Strategy', status:'Research',
+    contributors:{
+      anushka: { type:'strategy',    effort:'medium', bl:18 },
+      meghna:  { type:'design_work', effort:'none',   bl:0, designOnHold:true },
+    },
+    assignedMembers:['anushka','sakhi','meghna'], notActive:['sakhi'],
+  },
+  // ── PRODUCTION / MINIMAL ──────────────────────────────────────
+  {
+    id:'cecilia_pkg', name:'Cecilia Ramos', category:'Packaging', status:'Production',
+    contributors:{
+      mugdha: { type:'design_work', effort:'very_low', bl:5 },
+      meghna: { type:'design_work', effort:'very_low', bl:5 },
+    },
+    assignedMembers:['mugdha','meghna'],
+  },
+  {
+    id:'neha', name:"Neha's Collaterals", category:'Small Task', status:'Small Task',
+    contributors:{ disha: { type:'design_work', effort:'very_low', bl:8 } },
+    assignedMembers:['disha'],
+  },
+  // ── SLOW ──────────────────────────────────────────────────────
+  {
+    id:'willow', name:'Willow Barn', category:'Branding & Web', status:'Slow',
+    contributors:{
+      shruti:  { type:'design_work', effort:'medium',   bl:22 },
+      anushka: { type:'strategy',    effort:'very_low', bl:8  },
+      anahita: { type:'oversight',   effort:'very_low', bl:3  },
+    },
+    assignedMembers:['shruti','anushka','anahita'],
+  },
+  // ── ACTIVE — CLIENT DESIGN ────────────────────────────────────
+  {
+    id:'dev', name:'Dev Ratnam', category:'Branding & VI', status:'Active',
+    contributors:{
+      shruti:  { type:'design_work', effort:'medium',   bl:22 },
+      sakhi:   { type:'design_work', effort:'medium',   bl:20 },
+      shristi: { type:'oversight',   effort:'medium',   bl:20 },
+      anushka: { type:'strategy',    effort:'low',      bl:10 },
+      anahita: { type:'oversight',   effort:'very_low', bl:2  },
+    },
+    assignedMembers:['shruti','sakhi','shristi','anushka','anahita'],
+  },
+  {
+    id:'borrowed_web', name:'Borrowed Earth', category:'Website Retainer — AI Gen',
+    status:'Active', isHighLoad:true,
+    contributors:{
+      disha:   { type:'design_work', effort:'high',      bl:35 },
+      shruti:  { type:'design_work', effort:'high',      bl:35 },
+      shristi: { type:'oversight',   effort:'medium',    bl:20 },
+      pragati: { type:'strategy',    effort:'low',       bl:10 },
+      anahita: { type:'oversight',   effort:'very_low',  bl:1  },
+    },
+    assignedMembers:['disha','shruti','shristi','pragati','anahita'],
+  },
+  {
+    id:'renn_web', name:'Studio Renn', category:'Website', status:'Active',
+    contributors:{
+      mugdha:  { type:'design_work', effort:'medium',   bl:20 },
+      sakhi:   { type:'design_work', effort:'medium',   bl:20 },
+      anushka: { type:'strategy',    effort:'low',      bl:10 },
+      anahita: { type:'oversight',   effort:'very_low', bl:1  },
+    },
+    assignedMembers:['mugdha','sakhi','anushka','anahita'],
+  },
+  {
+    id:'renn_brand', name:'Studio Renn', category:'Brand Comms', status:'Active',
+    contributors:{
+      sakhi:   { type:'design_work', effort:'low',      bl:16 },
+      anushka: { type:'strategy',    effort:'low',      bl:12 },
+      anahita: { type:'oversight',   effort:'very_low', bl:1  },
+    },
+    assignedMembers:['sakhi','anushka','anahita'],
+  },
+  {
+    id:'bombaim', name:'Bombaim', category:'Retainer', status:'Active',
+    contributors:{
+      disha:   { type:'design_work', effort:'medium',   bl:18 },
+      anahita: { type:'oversight',   effort:'very_low', bl:1  },
+    },
+    assignedMembers:['disha','anahita'],
+  },
+  {
+    id:'studio92_web', name:'Space at 9/2', category:'Website', status:'Active',
+    contributors:{
+      mugdha:  { type:'design_work', effort:'medium',   bl:18 },
+      shristi: { type:'design_work', effort:'medium',   bl:16 },
+      pragati: { type:'strategy',    effort:'very_low', bl:5  },
+      anahita: { type:'content',     effort:'very_low', bl:5  },
+    },
+    assignedMembers:['mugdha','shristi','pragati','anahita'],
+  },
+  {
+    id:'ypo', name:'YPO', category:'Project', status:'Active',
+    contributors:{
+      mugdha:  { type:'design_work', effort:'medium',   bl:18 },
+      shristi: { type:'design_work', effort:'medium',   bl:18 },
+      anahita: { type:'oversight',   effort:'very_low', bl:1  },
+    },
+    assignedMembers:['mugdha','shristi','anahita'],
+  },
+  // ── ACTIVE — INTERNAL ─────────────────────────────────────────
+  {
+    id:'bd', name:'Business Development', category:'Internal', status:'Active',
+    contributors:{
+      pragati: { type:'strategy',    effort:'high',     bl:28 },
+      shristi: { type:'design_work', effort:'very_low', bl:8  },
+      anahita: { type:'strategy',    effort:'very_low', bl:4  },
+    },
+    assignedMembers:['pragati','shristi','anahita'],
+  },
+  {
+    id:'finance', name:'Finance', category:'Internal', status:'Active',
+    contributors:{
+      pragati: { type:'strategy',    effort:'high',     bl:30 },
+      anahita: { type:'oversight',   effort:'very_low', bl:3  },
+    },
+    assignedMembers:['pragati','anahita'],
+  },
+  // ── ACTIVE — SOCIAL MEDIA ─────────────────────────────────────
+  {
+    id:'borrowed_sm', name:'Borrowed Earth SM', category:'Social Media', status:'Active',
+    contributors:{
+      meghna:  { type:'design_work', effort:'medium_high', bl:25 },
+      pragati: { type:'strategy',    effort:'high',        bl:30 },
+    },
+    assignedMembers:['meghna','pragati'],
+  },
+  {
+    id:'space_sm', name:'Space at 9/2 SM', category:'Social Media', status:'Active', isNew:true,
+    contributors:{
+      meghna:  { type:'design_work', effort:'medium',   bl:20 },
+      sakhi:   { type:'design_work', effort:'medium',   bl:20 },
+      mugdha:  { type:'design_work', effort:'upcoming', bl:0,  isUpcoming:true },
+      anahita: { type:'oversight',   effort:'very_low', bl:1  },
+    },
+    assignedMembers:['meghna','sakhi','mugdha','anahita'],
+  },
+  // ── CONTENT & OPERATIONS ─────────────────────────────────────
+  {
+    id:'space_newsletter', name:'Space Newsletter', category:'Content', status:'Active',
+    contributors:{ anahita: { type:'content', effort:'low', bl:6 } },
+    assignedMembers:['anahita'],
+  },
+  {
+    id:'studio_ops', name:'Studio Operations', category:'Internal', status:'Active',
+    contributors:{ anahita: { type:'operations', effort:'low', bl:4 } },
+    assignedMembers:['anahita'],
+  },
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   COMPUTATION
+═══════════════════════════════════════════════════════════════ */
+function computeWorkloads(projects, team) {
+  const loads = {};
+  team.forEach(m => { loads[m.id] = { total:0, byProject:[] }; });
+  projects.forEach(proj => {
+    const mx = STATUS_MX[proj.status] ?? 0;
+    Object.entries(proj.contributors).forEach(([mid, c]) => {
+      if (!loads[mid]) return;
+      const isDesignHold = c.designOnHold || false;
+      const load = (c.isUpcoming || isDesignHold) ? 0 : Math.round(c.bl * mx);
+      loads[mid].total += load;
+      loads[mid].byProject.push({
+        id:proj.id, name:proj.name, category:proj.category,
+        load, type:c.type, effort:c.effort, status:proj.status,
+        isHighLoad:proj.isHighLoad||false, isNew:proj.isNew||false,
+        isUpcoming: c.isUpcoming || (mx===0 && proj.status!=='Closed'),
+        isDesignHold,
+      });
+    });
+  });
+  return loads;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════════ */
+function getCategory(pct) {
+  if (pct > 120) return 'overloaded';
+  if (pct >= 70)  return 'optimal';
+  return 'underutilized';
+}
+function getCatColor(cat) {
+  return cat==='overloaded' ? T.overload : cat==='optimal' ? T.optimal : T.under;
+}
+function getCatLabel(cat) {
+  return cat==='overloaded' ? 'Overloaded' : cat==='optimal' ? 'Optimal' : 'Underutilised';
+}
+function getAvailability(member, pct) {
+  if (member.availOverride === 'maxed') return 'maxed';
+  if (pct >= 70) return 'partial';
+  return 'available';
+}
+function availColor(a)  { return a==='maxed'?T.maxed : a==='partial'?T.partial : T.avail; }
+function availBg(a)     { return a==='maxed'?T.maxedBg : a==='partial'?T.partBg : T.availBg; }
+function availLabel(a)  { return a==='maxed'?'Temporarily Maxed Out' : a==='partial'?'Partially Available' : 'Available'; }
+
+function getStatusColor(s) {
+  const m = {
+    'Active':'#4E7A5A','Slow':'#C9A96E','Production':'#5B7A99',
+    'Small Task':'#7B6FAB','Research':'#4E8A88',
+    'Upcoming':'#7B8EA0','On Hold':'#ABA49C','Closed':'#C8C4BE',
+  };
+  return m[s] || T.text3;
+}
+function effortLabel(e) {
+  const m = { none:'None', very_low:'Very Low', low:'Low', medium:'Medium', medium_high:'Medium–High', high:'High', upcoming:'Upcoming' };
+  return m[e] || e;
+}
+function effortColor(e) {
+  const m = { none:T.text3, very_low:T.text3, low:T.text2, medium:T.accent, medium_high:'#B87750', high:T.overload, upcoming:T.upcoming };
+  return m[e] || T.text3;
+}
+function typeLabel(t) {
+  const m = {
+    design_work:'Design Work', strategy:'Strategy', oversight:'Oversight',
+    content:'Content', operations:'Operations', light:'Support',
+  };
+  return m[t] || t;
+}
+function loadBarColor(pct) {
+  if (pct > 120) return T.overload;
+  if (pct > 70)  return T.accent;
+  return T.under;
+}
+function genId(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]/g,'_').replace(/_+/g,'_').slice(0,20) + '_' + Date.now().toString(36);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   EDIT PRIMITIVES
+═══════════════════════════════════════════════════════════════ */
+function Sel({ value, options, onChange, style={} }) {
+  return (
+    <select value={value} onChange={e=>onChange(e.target.value)} style={{
+      fontFamily:T.sans, fontSize:9, fontWeight:600,
+      color:T.text1, background:T.surface,
+      border:`1px solid ${T.border}`,
+      borderRadius:3, padding:'3px 22px 3px 7px',
+      cursor:'pointer', outline:'none',
+      letterSpacing:'0.03em',
+      WebkitAppearance:'none', MozAppearance:'none', appearance:'none',
+      backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23ABA49C'/%3E%3C/svg%3E")`,
+      backgroundRepeat:'no-repeat',
+      backgroundPosition:'right 7px center',
+      ...style,
+    }}>
+      {options.map(o => {
+        const [v,l] = Array.isArray(o) ? o : [o,o];
+        return <option key={v} value={v}>{l}</option>;
+      })}
+    </select>
+  );
+}
+
+const TxtInput = React.forwardRef(function TxtInput({ value, onChange, placeholder, style={} }, ref) {
+  return (
+    <input ref={ref} type="text" value={value} placeholder={placeholder}
+      onChange={e=>onChange(e.target.value)}
+      style={{
+        fontFamily:T.sans, fontSize:11, color:T.text1,
+        background:T.surface, border:`1px solid ${T.border}`,
+        borderRadius:3, padding:'5px 9px', outline:'none',
+        ...style,
+      }}
+    />
+  );
+});
+
+function IBtn({ onClick, title, children, danger, style={} }) {
+  return (
+    <button onClick={onClick} title={title} style={{
+      background:'none', border:`1px solid ${danger?T.overload:T.border}`,
+      borderRadius:3, padding:'2px 7px', cursor:'pointer',
+      fontFamily:T.sans, fontSize:9, fontWeight:600,
+      color: danger ? T.overload : T.text2,
+      letterSpacing:'0.04em',
+      transition:'opacity 0.15s',
+      ...style,
+    }}
+    onMouseEnter={e=>e.currentTarget.style.opacity='0.65'}
+    onMouseLeave={e=>e.currentTarget.style.opacity='1'}
+    >{children}</button>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PRIMITIVES
+═══════════════════════════════════════════════════════════════ */
+function Pill({ children, color, bg, size=8, style={} }) {
+  return (
+    <span style={{
+      display:'inline-block', padding:'2px 7px', borderRadius:2,
+      fontSize:size, fontWeight:700, letterSpacing:'0.09em', textTransform:'uppercase',
+      color:color||T.text2, background:bg||T.bgAlt,
+      border:`1px solid ${(color||T.border)}25`, whiteSpace:'nowrap',
+      fontFamily:T.sans, ...style,
+    }}>{children}</span>
+  );
+}
+
+function Label({ children, right }) {
+  return (
+    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+      <span style={{ fontFamily:T.sans, fontSize:9, fontWeight:600, letterSpacing:'0.2em', textTransform:'uppercase', color:T.text3 }}>
+        {children}
+      </span>
+      {right && <span style={{ fontSize:9, color:T.text3, fontFamily:T.sans }}>{right}</span>}
+    </div>
+  );
+}
+
+function Bar({ pct, h=2 }) {
+  const cap   = Math.min(pct, 100);
+  const over  = Math.max(0, pct - 100);
+  const color = loadBarColor(pct);
+  return (
+    <div style={{ width:'100%', height:h, background:T.borderHair, borderRadius:1, overflow:'hidden', display:'flex' }}>
+      <div style={{ width:`${cap}%`, height:'100%', background:color, borderRadius:1, transition:'width 0.55s ease' }}/>
+      {over > 0 && <div style={{ width:`${Math.min(over*0.4,15)}%`, height:'100%', background:T.overload, opacity:0.35 }}/>}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ADD-MEMBER ROW  (edit mode — inside expanded project)
+═══════════════════════════════════════════════════════════════ */
+function AddMemberRow({ projId, team, currentIds, onAdd }) {
+  const [mid,    setMid]    = useState('');
+  const [type,   setType]   = useState('design_work');
+  const [effort, setEffort] = useState('medium');
+  const available = team.filter(m => !currentIds.includes(m.id));
+  if (available.length === 0) return null;
+
+  function commit() {
+    if (!mid) return;
+    onAdd(projId, mid, { type, effort, bl: EFFORT_BL[effort] || 20 });
+    setMid('');
+  }
+
+  return (
+    <div style={{ display:'flex', gap:6, alignItems:'center', marginTop:10, paddingTop:10, borderTop:`1px dashed ${T.borderHair}`, flexWrap:'wrap' }}>
+      <Sel value={mid} options={[['','+ Person'], ...available.map(m=>[m.id, m.name.split(' ')[0]])]} onChange={setMid}/>
+      <Sel value={type}   options={TYPE_OPTS}   onChange={setType}/>
+      <Sel value={effort} options={EFFORT_OPTS} onChange={setEffort}/>
+      <IBtn onClick={commit} style={{ background:T.accentBg, borderColor:T.accent, color:T.accent }}>Assign</IBtn>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ADD-PROJECT ROW  (edit mode — top of Project Index)
+═══════════════════════════════════════════════════════════════ */
+function AddProjectRow({ onAdd }) {
+  const [open,   setOpen]   = useState(false);
+  const [name,   setName]   = useState('');
+  const [cat,    setCat]    = useState('');
+  const [status, setStatus] = useState('Active');
+  const ref = useRef();
+
+  useEffect(() => { if (open && ref.current) ref.current.focus(); }, [open]);
+
+  function commit() {
+    if (!name.trim()) return;
+    onAdd({
+      id: genId(name),
+      name: name.trim(),
+      category: cat.trim() || 'General',
+      status,
+      contributors: {},
+      assignedMembers: [],
+    });
+    setName(''); setCat(''); setStatus('Active'); setOpen(false);
+  }
+
+  if (!open) return (
+    <button onClick={()=>setOpen(true)} style={{
+      fontFamily:T.sans, fontSize:9, fontWeight:600, letterSpacing:'0.08em',
+      textTransform:'uppercase', color:T.accent, background:T.accentBg,
+      border:`1px solid ${T.accent}40`, borderRadius:4, padding:'5px 12px',
+      cursor:'pointer', marginBottom:18, display:'block',
+    }}>+ New Project</button>
+  );
+
+  return (
+    <div style={{ padding:'14px 16px', background:T.accentBg, borderRadius:6, border:`1px solid ${T.accent}30`, marginBottom:16 }}>
+      <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+        <TxtInput ref={ref} value={name} onChange={setName} placeholder="Project name" style={{ flex:1, minWidth:120 }}/>
+        <TxtInput value={cat} onChange={setCat} placeholder="Category" style={{ flex:1, minWidth:100 }}/>
+        <Sel value={status} options={STATUS_OPTS} onChange={setStatus}/>
+        <IBtn onClick={commit} style={{ background:T.accent, borderColor:T.accent, color:'#fff' }}>Add</IBtn>
+        <IBtn onClick={()=>setOpen(false)}>Cancel</IBtn>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MASTHEAD
+═══════════════════════════════════════════════════════════════ */
+function Masthead({ loads, view, setView, editMode, setEditMode, team, projects }) {
+  const totalLoad = Object.values(loads).reduce((s,d)=>s+d.total, 0);
+  const avgPct    = Math.round(totalLoad / (team.length * 100) * 100);
+  const activeP   = projects.filter(p=>p.status==='Active').length;
+  const availN    = team.filter(m => getAvailability(m, loads[m.id]?.total||0) === 'available').length;
+  const maxedN    = team.filter(m => getAvailability(m, loads[m.id]?.total||0) === 'maxed').length;
+
+  return (
+    <header style={{
+      position:'sticky', top:0, zIndex:100,
+      background: editMode ? 'rgba(251,245,230,0.97)' : 'rgba(247,245,240,0.95)',
+      backdropFilter:'blur(10px)',
+      WebkitBackdropFilter:'blur(10px)',
+      borderBottom:`1px solid ${editMode ? T.accent+'60' : T.border}`,
+      transition:'background 0.2s, border-color 0.2s',
+    }}>
+      {editMode && (
+        <div style={{ height:2, background:`linear-gradient(90deg, ${T.accent}, ${T.accent}40)` }}/>
+      )}
+      <div style={{
+        maxWidth:1520, margin:'0 auto', padding:'0 48px',
+        height:68, display:'flex', alignItems:'center', justifyContent:'space-between', gap:32,
+      }}>
+
+        <div style={{ flexShrink:0 }}>
+          <div style={{ fontFamily:T.serif, fontSize:15, fontWeight:500, color:T.text1, letterSpacing:'0.01em' }}>
+            Space at 9/2
+          </div>
+          <div style={{ fontFamily:T.sans, fontSize:8, letterSpacing:'0.2em', textTransform:'uppercase', color:T.text3, marginTop:2 }}>
+            Resource Intelligence
+          </div>
+        </div>
+
+        <div style={{ display:'flex', alignItems:'center', gap:28 }}>
+          {[
+            { val:`${avgPct}%`,  label:'Team Avg Load', serif:true },
+            null,
+            { val:availN,        label:'Available Now', color:T.avail },
+            null,
+            { val:`${maxedN} wk`,label:'Maxed — 2 Weeks', color:T.maxed },
+            null,
+            { val:activeP,       label:'Active Projects' },
+            null,
+            { val:team.length,   label:'Team Size' },
+          ].map((s,i) => s===null
+            ? <div key={i} style={{ width:1, height:26, background:T.border }}/>
+            : (
+              <div key={i} style={{ textAlign:'center' }}>
+                <div style={{
+                  fontFamily:s.serif ? T.serif : T.sans,
+                  fontSize:s.serif ? 24 : 17,
+                  fontWeight:s.serif ? 500 : 700,
+                  color:s.color||T.text1, lineHeight:1,
+                }}>{s.val}</div>
+                <div style={{ fontSize:8, color:T.text3, marginTop:3, letterSpacing:'0.1em', textTransform:'uppercase', fontFamily:T.sans }}>{s.label}</div>
+              </div>
+            )
+          )}
+        </div>
+
+        <div style={{ display:'flex', gap:8, alignItems:'center', flexShrink:0 }}>
+          {/* View toggle */}
+          <div style={{ display:'flex', gap:2, padding:3, background:T.bgAlt, borderRadius:4, border:`1px solid ${T.border}` }}>
+            {[['active','Active Work'],['assigned','All Assigned']].map(([v,l]) => (
+              <button key={v} onClick={()=>setView(v)} style={{
+                padding:'5px 14px', border:'none', borderRadius:3, cursor:'pointer',
+                background:view===v ? T.surface : 'transparent',
+                color:view===v ? T.text1 : T.text3,
+                fontFamily:T.sans, fontSize:9, fontWeight:600,
+                letterSpacing:'0.08em', textTransform:'uppercase',
+                boxShadow:view===v ? '0 1px 4px rgba(0,0,0,0.07)' : 'none',
+                transition:'all 0.15s',
+              }}>{l}</button>
+            ))}
+          </div>
+
+          {/* Edit mode toggle */}
+          <button onClick={()=>setEditMode(e=>!e)} style={{
+            padding:'5px 14px', borderRadius:4, cursor:'pointer',
+            background: editMode ? T.accent : T.bgAlt,
+            color:      editMode ? '#fff'   : T.text2,
+            border:     `1px solid ${editMode ? T.accent : T.border}`,
+            fontFamily:T.sans, fontSize:9, fontWeight:700,
+            letterSpacing:'0.1em', textTransform:'uppercase',
+            transition:'all 0.2s',
+          }}>
+            {editMode ? '✓ Editing' : '✎ Edit'}
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   OVERVIEW STRIP  — 9 editorial cards
+═══════════════════════════════════════════════════════════════ */
+function OverviewStrip({ loads, team }) {
+  const order = ['anahita','pragati','shristi','mugdha','sakhi','anushka','meghna','shruti','disha'];
+  const members = order.map(id=>team.find(m=>m.id===id)).filter(Boolean);
+
+  return (
+    <div style={{ maxWidth:1520, margin:'0 auto', padding:'32px 48px 0' }}>
+      <Label>Team Capacity — Current State</Label>
+      <div style={{ display:'grid', gridTemplateColumns:`repeat(${members.length},1fr)`, gap:10 }}>
+        {members.map(m => {
+          const pct   = Math.min(loads[m.id]?.total || 0, 150);
+          const cat   = getCategory(pct);
+          const avail = getAvailability(m, pct);
+          const catC  = getCatColor(cat);
+
+          return (
+            <div key={m.id} style={{
+              background: T.surface,
+              border: m.isFounder ? `1px solid ${T.accent}` : `1px solid ${T.border}`,
+              borderTop: m.isFounder ? `3px solid ${T.accent}` : `1px solid ${T.border}`,
+              borderRadius:6, padding:'16px 13px', cursor:'default',
+              transition:'box-shadow 0.2s',
+            }}
+            onMouseEnter={e=>{ e.currentTarget.style.boxShadow='0 5px 18px rgba(0,0,0,0.07)'; }}
+            onMouseLeave={e=>{ e.currentTarget.style.boxShadow='none'; }}
+            >
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                <span style={{
+                  display:'inline-block', width:5, height:5, borderRadius:'50%',
+                  background: m.city==='Calcutta'?'#9B8BBF' : m.city==='Studio'?T.accent : '#C4894A',
+                }}/>
+                <span style={{ fontFamily:T.sans, fontSize:7, fontWeight:700, letterSpacing:'0.06em', color:availColor(avail) }}>
+                  {avail==='maxed' ? '⊘ MAXED' : avail==='partial' ? '◑ PARTIAL' : '● AVAIL'}
+                </span>
+              </div>
+
+              <div style={{ fontFamily:T.serif, fontSize:28, fontWeight:500, color:catC, lineHeight:1, marginBottom:10 }}>
+                {pct}%
+              </div>
+
+              <Bar pct={pct} h={2}/>
+
+              <div style={{ marginTop:10 }}>
+                <div style={{ fontFamily:T.sans, fontSize:11, fontWeight:600, color:T.text1 }}>
+                  {m.name.split(' ')[0]}
+                </div>
+                <div style={{ fontFamily:T.sans, fontSize:8, color:T.text3, marginTop:2, lineHeight:1.35 }}>
+                  {m.role.replace('Founder & Creative Director','Founder & CD').replace('Senior ','Sr. ').replace('Mid-Level ','Mid ')}
+                </div>
+              </div>
+
+              <div style={{ display:'flex', gap:4, marginTop:9, flexWrap:'wrap' }}>
+                <span style={{ fontFamily:T.sans, fontSize:8, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:catC }}>
+                  {getCatLabel(cat)}
+                </span>
+                {m.isCritical && (
+                  <span style={{ fontFamily:T.sans, fontSize:7, fontWeight:700, padding:'1px 4px', borderRadius:1, background:T.critBg, color:T.critical, letterSpacing:'0.05em', textTransform:'uppercase', border:`1px solid ${T.critical}20` }}>
+                    CR
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TEAM WORKLOAD — left column
+═══════════════════════════════════════════════════════════════ */
+function TeamWorkload({ loads, view, team, projects, editMode, onToggleMaxed }) {
+  const [exp, setExp] = useState(null);
+  const sorted = [...team].sort((a,b) => (loads[b.id]?.total||0)-(loads[a.id]?.total||0));
+
+  return (
+    <div style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:8, padding:'28px 24px' }}>
+      <Label>Team Workload</Label>
+
+      {sorted.map((m, idx) => {
+        const data   = loads[m.id];
+        const pct    = Math.min(data?.total||0, 150);
+        const cat    = getCategory(pct);
+        const catC   = getCatColor(cat);
+        const avail  = getAvailability(m, pct);
+        const streams= data?.byProject.filter(p=>p.load>0).length || 0;
+        const isExp  = exp === m.id;
+        const last   = idx === sorted.length - 1;
+        const upcomingItems = data?.byProject.filter(p=>p.isUpcoming) || [];
+        const assigned = projects.filter(p => p.assignedMembers?.includes(m.id));
+
+        return (
+          <div key={m.id} style={{
+            borderBottom: last?'none':`1px solid ${T.borderHair}`,
+            paddingBottom:last?0:18, marginBottom:last?0:18,
+          }}>
+            <div
+              style={{ display:'flex', gap:12, cursor:'pointer', alignItems:'flex-start' }}
+              onClick={()=>setExp(isExp ? null : m.id)}
+            >
+              <div style={{ fontFamily:T.sans, fontSize:10, color:T.text3, minWidth:18, paddingTop:3, fontVariantNumeric:'tabular-nums' }}>
+                {String(idx+1).padStart(2,'0')}
+              </div>
+
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                  <div>
+                    <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap', marginBottom:2 }}>
+                      <span style={{ fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text1 }}>{m.name}</span>
+                      {m.isCritical && <Pill color={T.critical} bg={T.critBg}>Critical Resource</Pill>}
+                      {avail==='maxed' && <Pill color={T.maxed} bg={T.maxedBg}>Maxed — 2 wks</Pill>}
+                    </div>
+                    <div style={{ fontFamily:T.sans, fontSize:10, color:T.text3 }}>
+                      {m.role} · {m.city}
+                    </div>
+                  </div>
+
+                  <div style={{ display:'flex', alignItems:'flex-start', gap:10, flexShrink:0 }}>
+                    <div style={{ textAlign:'right' }}>
+                      <div style={{ fontFamily:T.serif, fontSize:24, fontWeight:500, color:catC, lineHeight:1 }}>{pct}%</div>
+                      <div style={{ fontFamily:T.sans, fontSize:8, fontWeight:600, color:availColor(avail), marginTop:3 }}>
+                        {availLabel(avail)}
+                      </div>
+                    </div>
+                    {editMode && (
+                      <button
+                        onClick={e=>{ e.stopPropagation(); onToggleMaxed(m.id); }}
+                        title={avail==='maxed' ? 'Mark as Normal' : 'Mark as Maxed'}
+                        style={{
+                          marginTop:2, padding:'3px 8px', borderRadius:3, cursor:'pointer',
+                          fontFamily:T.sans, fontSize:8, fontWeight:700, letterSpacing:'0.06em',
+                          border:`1px solid ${avail==='maxed' ? T.maxed : T.border}`,
+                          background: avail==='maxed' ? T.maxedBg : T.bgAlt,
+                          color:       avail==='maxed' ? T.maxed    : T.text3,
+                          textTransform:'uppercase',
+                        }}
+                      >
+                        {avail==='maxed' ? '⊘ Maxed' : '○ Normal'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ margin:'9px 0 6px' }}><Bar pct={pct} h={2}/></div>
+
+                <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
+                  <span style={{ fontFamily:T.sans, fontSize:9, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', color:catC }}>
+                    {getCatLabel(cat)}
+                  </span>
+                  <span style={{ fontFamily:T.sans, fontSize:9, color:T.text3 }}>· {streams} active stream{streams!==1?'s':''}</span>
+                  {upcomingItems.length>0 && (
+                    <span style={{ fontFamily:T.sans, fontSize:9, color:T.upcoming }}>
+                      · {upcomingItems.length} upcoming
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Expanded */}
+            {isExp && (
+              <div style={{ marginTop:12, marginLeft:30, padding:'14px 16px', background:T.bg, borderRadius:6, border:`1px solid ${T.borderHair}` }}>
+                <div style={{ fontFamily:T.sans, fontSize:8, color:T.text3, letterSpacing:'0.14em', textTransform:'uppercase', marginBottom:12 }}>
+                  {view==='assigned' ? 'All Assigned Projects' : 'Active Contributions'}
+                </div>
+
+                {view==='active' ? (
+                  data.byProject.length===0
+                    ? <div style={{ fontSize:11, color:T.text3 }}>No contributions</div>
+                    : data.byProject.map((proj, i) => (
+                      <div key={i} style={{
+                        display:'flex', justifyContent:'space-between', alignItems:'flex-start',
+                        paddingBottom:9, marginBottom:9,
+                        borderBottom:i<data.byProject.length-1?`1px solid ${T.borderHair}`:'none',
+                        opacity: (proj.isUpcoming || proj.isDesignHold) ? 0.55 : 1,
+                      }}>
+                        <div>
+                          <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', marginBottom:3 }}>
+                            <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:600, color:T.text1 }}>{proj.name}</span>
+                            <span style={{ fontFamily:T.sans, fontSize:9, color:T.text3 }}>{proj.category}</span>
+                            {proj.isHighLoad   && <Pill color={T.overload} bg={T.overBg} size={7}>High Load</Pill>}
+                            {proj.isNew        && <Pill color={T.sm}       bg={T.smBg}   size={7}>New</Pill>}
+                            {proj.isUpcoming   && <Pill color={T.upcoming} bg={T.upBg}   size={7}>Upcoming</Pill>}
+                            {proj.isDesignHold && <Pill color={T.text3}    bg={T.bgAlt}  size={7}>On Hold — Design</Pill>}
+                          </div>
+                          <div style={{ display:'flex', gap:8 }}>
+                            <span style={{ fontFamily:T.sans, fontSize:9, fontWeight:600, color:effortColor(proj.effort) }}>
+                              {effortLabel(proj.effort)} Effort
+                            </span>
+                            <span style={{ fontFamily:T.sans, fontSize:9, color:T.text3 }}>{typeLabel(proj.type)}</span>
+                          </div>
+                        </div>
+                        <span style={{ fontFamily:T.sans, fontSize:13, fontWeight:700, color:(proj.isUpcoming||proj.isDesignHold)?T.text3:getCatColor(getCategory(pct)), fontVariantNumeric:'tabular-nums' }}>
+                          {(proj.isUpcoming||proj.isDesignHold) ? '—' : `+${proj.load}`}
+                        </span>
+                      </div>
+                    ))
+                ) : (
+                  assigned.length===0
+                    ? <div style={{ fontSize:11, color:T.text3 }}>No assignments</div>
+                    : assigned.map((proj, i) => {
+                        const active   = !!proj.contributors[m.id];
+                        const inactive = proj.notActive?.includes(m.id);
+                        return (
+                          <div key={i} style={{
+                            display:'flex', justifyContent:'space-between', alignItems:'center',
+                            marginBottom:7, opacity:active&&!inactive?1:0.35,
+                          }}>
+                            <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                              <span style={{ fontFamily:T.sans, fontSize:11, color:T.text1 }}>{proj.name}</span>
+                              <span style={{ fontFamily:T.sans, fontSize:9, color:T.text3 }}>{proj.category}</span>
+                              {inactive && <Pill color={T.overload} bg={T.overBg} size={7}>Inactive</Pill>}
+                            </div>
+                            <span style={{
+                              fontFamily:T.sans, fontSize:8, fontWeight:700, padding:'2px 7px', borderRadius:2,
+                              textTransform:'uppercase', letterSpacing:'0.07em',
+                              color:getStatusColor(proj.status), background:getStatusColor(proj.status)+'18',
+                            }}>{proj.status}</span>
+                          </div>
+                        );
+                      })
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PROJECT INDEX
+═══════════════════════════════════════════════════════════════ */
+function ProjectIndex({ projects, team, editMode, onUpdateProject, onUpdateContributor, onAddProject, onRemoveProject }) {
+  const [exp, setExp] = useState(null);
+
+  const sorted = [...projects].sort((a,b) => {
+    const ord = {'Active':0,'Production':1,'Slow':2,'Small Task':3,'Research':1,'Upcoming':4,'On Hold':5,'Closed':6};
+    const la  = Object.values(a.contributors).reduce((s,c)=>s+Math.round(c.bl*(STATUS_MX[a.status]??0)),0);
+    const lb  = Object.values(b.contributors).reduce((s,c)=>s+Math.round(c.bl*(STATUS_MX[b.status]??0)),0);
+    const oa  = ord[a.status]??9, ob = ord[b.status]??9;
+    return oa!==ob ? oa-ob : lb-la;
+  });
+
+  const catHue = (cat) => {
+    if (cat==='Social Media') return T.sm;
+    if (cat==='Internal' || cat==='Content') return T.rising;
+    if (cat.includes('Website')) return T.under;
+    if (cat.includes('Branding')) return T.accent;
+    return T.text3;
+  };
+
+  return (
+    <div style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:8, padding:'28px 24px' }}>
+      <Label right={`${projects.filter(p=>p.status==='Active').length} active · ${projects.filter(p=>p.isNew).length} new`}>
+        Project Index
+      </Label>
+
+      {editMode && <AddProjectRow onAdd={onAddProject}/>}
+
+      {sorted.map((proj, i) => {
+        const mx        = STATUS_MX[proj.status] ?? 0;
+        const load      = Object.values(proj.contributors).reduce((s,c)=>s+Math.round(c.bl*mx),0);
+        const contribs  = Object.entries(proj.contributors);
+        const isActive  = proj.status === 'Active' || proj.status === 'Slow' || proj.status === 'Production' || proj.status === 'Small Task' || proj.status === 'Research';
+        const isExp     = exp === proj.id;
+        const sColor    = getStatusColor(proj.status);
+        const last      = i===sorted.length-1;
+
+        return (
+          <div key={proj.id} style={{
+            borderBottom:last?'none':`1px solid ${T.borderHair}`,
+            paddingBottom:last?0:11, marginBottom:last?0:11,
+            opacity: isActive ? 1 : 0.38,
+          }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <div
+                style={{ flex:1, minWidth:0, cursor: isActive||editMode ? 'pointer' : 'default' }}
+                onClick={() => (isActive||editMode) && setExp(isExp?null:proj.id)}
+              >
+                <div style={{ display:'flex', alignItems:'baseline', gap:7, flexWrap:'wrap' }}>
+                  <span style={{ fontFamily:T.serif, fontSize:13, fontWeight:500, color:T.text1 }}>
+                    {proj.name}
+                  </span>
+                  <span style={{ fontFamily:T.sans, fontSize:9, color:catHue(proj.category), flexShrink:0 }}>
+                    {proj.category}
+                  </span>
+                  {proj.isHighLoad && <Pill color={T.overload} bg={T.overBg} size={7}>High Load</Pill>}
+                  {proj.isNew      && <Pill color={T.sm}       bg={T.smBg}   size={7}>New</Pill>}
+                  {proj.status==='Upcoming' && <Pill color={T.upcoming} bg={T.upBg} size={7}>Upcoming</Pill>}
+                </div>
+              </div>
+
+              {/* Contributor avatar stack */}
+              {contribs.length > 0 && !editMode && (
+                <div
+                  onClick={() => isActive && setExp(isExp?null:proj.id)}
+                  style={{ display:'flex', flexShrink:0, cursor:isActive?'pointer':'default' }}
+                >
+                  {contribs.slice(0,4).map(([mid]) => {
+                    const mem = team.find(t=>t.id===mid);
+                    return (
+                      <div key={mid} style={{
+                        width:19, height:19, borderRadius:'50%', background:T.bgAlt,
+                        border:`2px solid ${T.surface}`, marginLeft:-5,
+                        display:'flex', alignItems:'center', justifyContent:'center',
+                        fontSize:7, fontWeight:700, color:T.text2, fontFamily:T.sans,
+                      }}>{mem?.name.charAt(0)||'?'}</div>
+                    );
+                  })}
+                  {contribs.length>4 && (
+                    <div style={{
+                      width:19, height:19, borderRadius:'50%', background:T.bgAlt,
+                      border:`2px solid ${T.surface}`, marginLeft:-5,
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      fontSize:7, color:T.text3, fontFamily:T.sans,
+                    }}>+{contribs.length-4}</div>
+                  )}
+                </div>
+              )}
+
+              <span
+                onClick={() => (isActive||editMode) && setExp(isExp?null:proj.id)}
+                style={{ fontFamily:T.sans, fontSize:11, fontWeight:700, color:T.text2, minWidth:24, textAlign:'right', fontVariantNumeric:'tabular-nums', flexShrink:0, cursor:isActive?'pointer':'default' }}
+              >{load}</span>
+
+              {/* Status — editable dropdown in edit mode */}
+              {editMode ? (
+                <Sel
+                  value={proj.status}
+                  options={STATUS_OPTS}
+                  onChange={val => onUpdateProject(proj.id, { status: val })}
+                  style={{ flexShrink:0 }}
+                />
+              ) : (
+                <span
+                  onClick={() => isActive && setExp(isExp?null:proj.id)}
+                  style={{ fontFamily:T.sans, fontSize:7, fontWeight:800, padding:'2px 8px', borderRadius:2, textTransform:'uppercase', letterSpacing:'0.08em', color:sColor, background:sColor+'16', flexShrink:0, minWidth:52, textAlign:'center', cursor:isActive?'pointer':'default' }}
+                >{proj.status}</span>
+              )}
+            </div>
+
+            {/* Expanded — view mode */}
+            {isExp && !editMode && (
+              <div style={{ marginTop:9, padding:'11px 13px', background:T.bg, borderRadius:5, border:`1px solid ${T.borderHair}` }}>
+                {contribs.map(([mid, c]) => {
+                  const mem  = team.find(t=>t.id===mid);
+                  const cld  = c.isUpcoming ? 0 : Math.round(c.bl*(STATUS_MX[proj.status]??0));
+                  return (
+                    <div key={mid} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                        <span style={{ fontFamily:T.sans, fontSize:9, fontWeight:700, color:effortColor(c.effort) }}>
+                          {effortLabel(c.effort)}
+                        </span>
+                        <span style={{ fontFamily:T.sans, fontSize:11, color:T.text1 }}>{mem?.name}</span>
+                        <span style={{ fontFamily:T.sans, fontSize:9, color:T.text3 }}>{typeLabel(c.type)}</span>
+                        {c.isUpcoming && <Pill color={T.upcoming} bg={T.upBg} size={7}>Upcoming</Pill>}
+                      </div>
+                      <span style={{ fontFamily:T.sans, fontSize:10, fontWeight:600, color:T.text2 }}>
+                        {c.isUpcoming ? '—' : `+${cld}`}
+                      </span>
+                    </div>
+                  );
+                })}
+                {proj.notActive?.length>0 && (
+                  <div style={{ fontFamily:T.sans, fontSize:9, color:T.text3, marginTop:6, fontStyle:'italic' }}>
+                    Assigned but inactive: {proj.notActive.map(id=>team.find(t=>t.id===id)?.name.split(' ')[0]).join(', ')}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Expanded — edit mode */}
+            {isExp && editMode && (
+              <div style={{ marginTop:9, padding:'14px 16px', background:T.accentBg, borderRadius:5, border:`1px solid ${T.accent}25` }}>
+
+                {/* Contributors with effort controls */}
+                {contribs.length > 0 && (
+                  <div style={{ marginBottom:8 }}>
+                    <div style={{ fontFamily:T.sans, fontSize:8, color:T.text3, letterSpacing:'0.14em', textTransform:'uppercase', marginBottom:10 }}>
+                      Contributors
+                    </div>
+                    {contribs.map(([mid, c]) => {
+                      const mem = team.find(t=>t.id===mid);
+                      const cld = c.isUpcoming || c.designOnHold ? 0 : Math.round(c.bl*(STATUS_MX[proj.status]??0));
+                      return (
+                        <div key={mid} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:7, gap:8 }}>
+                          <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:600, color:T.text1, flex:1, minWidth:0 }}>
+                            {mem?.name.split(' ')[0]}
+                            <span style={{ fontFamily:T.sans, fontSize:9, color:T.text3, fontWeight:400, marginLeft:6 }}>{typeLabel(c.type)}</span>
+                          </span>
+                          <div style={{ display:'flex', gap:6, alignItems:'center', flexShrink:0 }}>
+                            <Sel
+                              value={c.type}
+                              options={TYPE_OPTS}
+                              onChange={val => onUpdateContributor(proj.id, mid, { type: val })}
+                            />
+                            <Sel
+                              value={c.effort}
+                              options={EFFORT_OPTS}
+                              onChange={val => onUpdateContributor(proj.id, mid, { effort: val, bl: EFFORT_BL[val] ?? c.bl })}
+                            />
+                            <span style={{ fontFamily:T.sans, fontSize:10, fontWeight:700, color:T.text2, minWidth:28, textAlign:'right' }}>
+                              {cld > 0 ? `+${cld}` : '—'}
+                            </span>
+                            <IBtn
+                              onClick={()=>onUpdateContributor(proj.id, mid, null)}
+                              danger title="Remove from project"
+                            >×</IBtn>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Add member */}
+                <AddMemberRow
+                  projId={proj.id}
+                  team={team}
+                  currentIds={contribs.map(([id])=>id)}
+                  onAdd={onUpdateContributor}
+                />
+
+                {/* Remove project */}
+                <div style={{ marginTop:14, paddingTop:12, borderTop:`1px dashed ${T.border}`, display:'flex', justifyContent:'flex-end' }}>
+                  <IBtn
+                    onClick={()=>{ if(window.confirm(`Remove "${proj.name}"?`)) { onRemoveProject(proj.id); setExp(null); } }}
+                    danger
+                  >Remove Project</IBtn>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ALLOCATION PANEL
+═══════════════════════════════════════════════════════════════ */
+function AllocationPanel({ loads, team, projects }) {
+  const withAvail = team.map(m => ({
+    ...m,
+    pct:   Math.min(loads[m.id]?.total||0, 150),
+    avail: getAvailability(m, loads[m.id]?.total||0),
+  }));
+
+  const available = withAvail.filter(m=>m.avail==='available').sort((a,b)=>a.pct-b.pct);
+  const partial   = withAvail.filter(m=>m.avail==='partial').sort((a,b)=>b.pct-a.pct);
+  const maxed     = withAvail.filter(m=>m.avail==='maxed');
+
+  const pragatiTotal = loads['pragati']?.total || 0;
+  const pragatiInt   = (loads['pragati']?.byProject||[]).filter(p=>['bd','finance','borrowed_sm'].includes(p.id)).reduce((s,p)=>s+p.load,0);
+
+  const flags = [
+    {
+      label:'Finance — Single Point of Failure',
+      body:`Finance runs entirely through Pragati. Invoicing, PnL, forecasting, and scope negotiations have no backup or delegation path. ${pragatiInt > 0 ? `Internal work represents ${Math.round((pragatiInt/pragatiTotal)*100)}% of her ${pragatiTotal}% total load.` : ''} This is the studio's highest structural risk.`,
+    },
+    {
+      label:'Borrowed Earth AI Gen — Design Blocked for 2 Weeks',
+      body:'Disha and Shruti are the sole design contributors on this project at HIGH intensity. Both carry the Temporarily Maxed Out status for the next two weeks. Bombaim (Disha) and Dev Ratnam (Shruti) also remain active — there is no design backup available within the current team.',
+    },
+    {
+      label:'Leadership Touch — Anahita Across All Active Projects',
+      body:`Anahita holds lightweight oversight or content roles across every active project at ${loads['anahita']?.total||0}% total load. Individually each touchpoint is minimal, but founder sign-off across 10+ streams remains a soft bottleneck if volume increases.`,
+    },
+    {
+      label:'Odyssey — Research Phase Active',
+      body:'Odyssey has entered Research phase with Anushka as the sole active contributor at Medium effort. Meghna is assigned but design work is on hold — she will activate when the brief moves to production. Sakhi remains assigned but inactive.',
+    },
+  ];
+
+  const colHead = (label, color) => (
+    <div style={{ fontFamily:T.sans, fontSize:9, fontWeight:700, letterSpacing:'0.14em', textTransform:'uppercase', color, marginBottom:14 }}>
+      {label}
+    </div>
+  );
+
+  const memberRow = (m, note) => (
+    <div key={m.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+      <div>
+        <div style={{ fontFamily:T.sans, fontSize:12, fontWeight:600, color:T.text1 }}>{m.name.split(' ')[0]}</div>
+        <div style={{ fontFamily:T.sans, fontSize:9, color:T.text3, marginTop:1 }}>{m.role.replace('Senior ','Sr. ').replace('Mid-Level ','Mid ')}</div>
+        {note && <div style={{ fontFamily:T.sans, fontSize:9, color:T.text3, fontStyle:'italic' }}>{note}</div>}
+      </div>
+      <div style={{ textAlign:'right' }}>
+        <div style={{ fontFamily:T.serif, fontSize:19, fontWeight:500, color:getCatColor(getCategory(m.pct)), lineHeight:1 }}>{m.pct}%</div>
+        <div style={{ fontFamily:T.sans, fontSize:8, fontWeight:700, color:availColor(m.avail), marginTop:2, textTransform:'uppercase', letterSpacing:'0.06em' }}>
+          {availLabel(m.avail)}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:8, padding:'28px 24px' }}>
+      <Label>Allocation Status</Label>
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:20, marginBottom:28 }}>
+        <div style={{ padding:'16px 16px', background:T.availBg, borderRadius:6, border:`1px solid ${T.avail}18` }}>
+          {colHead('Available for New Work', T.avail)}
+          {available.length===0
+            ? <div style={{ fontFamily:T.sans, fontSize:11, color:T.text3 }}>None at this time</div>
+            : available.map(m => memberRow(m))}
+        </div>
+
+        <div style={{ padding:'16px 16px', background:T.partBg, borderRadius:6, border:`1px solid ${T.partial}18` }}>
+          {colHead('Partially Available', T.partial)}
+          {partial.length===0
+            ? <div style={{ fontFamily:T.sans, fontSize:11, color:T.text3 }}>None at this time</div>
+            : partial.map(m => memberRow(m, m.pct>=100?'At capacity — light work only':null))}
+        </div>
+
+        <div style={{ padding:'16px 16px', background:T.maxedBg, borderRadius:6, border:`1px solid ${T.maxed}18` }}>
+          {colHead('No Availability — 2 Weeks', T.maxed)}
+          {maxed.length===0
+            ? <div style={{ fontFamily:T.sans, fontSize:11, color:T.text3 }}>None at this time</div>
+            : maxed.map(m => memberRow(m, 'AI Gen retainer at HIGH intensity'))}
+        </div>
+      </div>
+
+      <div style={{ borderTop:`1px solid ${T.borderHair}`, paddingTop:22 }}>
+        <div style={{ fontFamily:T.sans, fontSize:9, fontWeight:700, letterSpacing:'0.2em', textTransform:'uppercase', color:T.text3, marginBottom:18 }}>
+          Dependency Map
+        </div>
+
+        {flags.map((f, i) => (
+          <div key={i} style={{
+            paddingBottom:i<flags.length-1?18:0,
+            marginBottom:i<flags.length-1?18:0,
+            borderBottom:i<flags.length-1?`1px solid ${T.borderHair}`:'none',
+          }}>
+            <div style={{ fontFamily:T.serif, fontSize:14, fontWeight:500, color:T.text1, marginBottom:6, lineHeight:1.4 }}>
+              {f.label}
+            </div>
+            <div style={{ fontFamily:T.sans, fontSize:11, color:T.text2, lineHeight:1.75, maxWidth:540 }}>
+              {f.body}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DESIGN TOKENS FOOTER
+═══════════════════════════════════════════════════════════════ */
+function TokensFooter() {
+  const tokens = [
+    { label:'Background',  val:'#F7F5F0', c:'#F7F5F0' },
+    { label:'Surface',     val:'#FFFFFF', c:'#FFFFFF' },
+    { label:'Accent',      val:'#C9A96E', c:'#C9A96E' },
+    { label:'Optimal',     val:'#4E7A5A', c:'#4E7A5A' },
+    { label:'Overloaded',  val:'#B24B43', c:'#B24B43' },
+    { label:'Underutil.',  val:'#5B7A99', c:'#5B7A99' },
+    { label:'Maxed Out',   val:'#B24B43', c:'#B24B43' },
+    { label:'Partial',     val:'#8B6914', c:'#C9A96E' },
+    { label:'Critical',    val:'#C4894A', c:'#C4894A' },
+    { label:'Social Media',val:'#4E8A88', c:'#4E8A88' },
+    { label:'Upcoming',    val:'#7B8EA0', c:'#7B8EA0' },
+  ];
+  return (
+    <div style={{ maxWidth:1520, margin:'0 auto', padding:'0 48px 40px' }}>
+      <div style={{ height:1, background:T.borderHair, margin:'0 0 16px' }}/>
+      <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
+        <span style={{ fontFamily:T.sans, fontSize:8, letterSpacing:'0.14em', textTransform:'uppercase', color:T.text3, marginRight:4 }}>
+          Design Tokens
+        </span>
+        {tokens.map(tk=>(
+          <div key={tk.label} style={{ display:'flex', alignItems:'center', gap:4 }}>
+            <div style={{ width:10, height:10, borderRadius:2, background:tk.c, border:`1px solid ${T.border}`, flexShrink:0 }}/>
+            <span style={{ fontFamily:T.sans, fontSize:8, color:T.text3 }}>{tk.label}</span>
+            <span style={{ fontFamily:T.sans, fontSize:7, color:T.text3, opacity:0.55 }}>{tk.val}</span>
+          </div>
+        ))}
+        <span style={{ fontFamily:T.sans, fontSize:8, color:T.text3, marginLeft:'auto' }}>
+          Playfair Display · Inter · 8px grid · Capacity = 100 units / person
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   APP ROOT  — localStorage-backed state
+═══════════════════════════════════════════════════════════════ */
+function App() {
+  const [view,     setView]     = useState('active');
+  const [editMode, setEditMode] = useState(false);
+
+  const [projects, setProjects] = useState(() => {
+    try { const s = localStorage.getItem('s92_projects'); return s ? JSON.parse(s) : INITIAL_PROJECTS; }
+    catch { return INITIAL_PROJECTS; }
+  });
+  const [team, setTeam] = useState(() => {
+    try { const s = localStorage.getItem('s92_team'); return s ? JSON.parse(s) : INITIAL_TEAM; }
+    catch { return INITIAL_TEAM; }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem('s92_projects', JSON.stringify(projects)); } catch {}
+  }, [projects]);
+  useEffect(() => {
+    try { localStorage.setItem('s92_team', JSON.stringify(team)); } catch {}
+  }, [team]);
+
+  const loads = useMemo(() => computeWorkloads(projects, team), [projects, team]);
+
+  /* ── mutations ─────────────────────────────────────────────── */
+  function updateProject(id, patch) {
+    setProjects(ps => ps.map(p => p.id===id ? {...p,...patch} : p));
+  }
+  function updateContributor(projId, memberId, patch) {
+    setProjects(ps => ps.map(p => {
+      if (p.id !== projId) return p;
+      const c = { ...p.contributors };
+      if (patch === null) {
+        delete c[memberId];
+        return { ...p, contributors:c, assignedMembers:(p.assignedMembers||[]).filter(id=>id!==memberId) };
+      }
+      c[memberId] = { ...(c[memberId]||{}), ...patch };
+      const am = (p.assignedMembers||[]).includes(memberId)
+        ? p.assignedMembers : [...(p.assignedMembers||[]), memberId];
+      return { ...p, contributors:c, assignedMembers:am };
+    }));
+  }
+  function addProject(proj)  { setProjects(ps => [...ps, proj]); }
+  function removeProject(id) { setProjects(ps => ps.filter(p => p.id!==id)); }
+  function toggleMemberMaxed(memberId) {
+    setTeam(tm => tm.map(m =>
+      m.id===memberId ? {...m, availOverride: m.availOverride==='maxed' ? null : 'maxed'} : m
+    ));
+  }
+  function resetToDefaults() {
+    if (window.confirm('Reset all data to defaults? This cannot be undone.')) {
+      setProjects(INITIAL_PROJECTS);
+      setTeam(INITIAL_TEAM);
+    }
+  }
+
+  return (
+    <div style={{ minHeight:'100vh', background:T.bg, paddingBottom:8 }}>
+      <Masthead
+        loads={loads} view={view} setView={setView}
+        editMode={editMode} setEditMode={setEditMode}
+        team={team} projects={projects}
+      />
+      <OverviewStrip loads={loads} team={team}/>
+
+      <div style={{
+        maxWidth:1520, margin:'0 auto', padding:'20px 48px',
+        display:'grid', gridTemplateColumns:'368px 1fr', gap:20, alignItems:'start',
+      }}>
+        <TeamWorkload
+          loads={loads} view={view} team={team} projects={projects}
+          editMode={editMode} onToggleMaxed={toggleMemberMaxed}
+        />
+        <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+          <ProjectIndex
+            projects={projects} team={team}
+            editMode={editMode}
+            onUpdateProject={updateProject}
+            onUpdateContributor={updateContributor}
+            onAddProject={addProject}
+            onRemoveProject={removeProject}
+          />
+          <AllocationPanel loads={loads} team={team} projects={projects}/>
+        </div>
+      </div>
+
+      {editMode && (
+        <div style={{ maxWidth:1520, margin:'0 auto', padding:'0 48px 8px', display:'flex', justifyContent:'flex-end' }}>
+          <button onClick={resetToDefaults} style={{
+            fontFamily:T.sans, fontSize:9, color:T.text3,
+            background:'none', border:'none', cursor:'pointer',
+            textDecoration:'underline', letterSpacing:'0.06em', padding:'4px 0',
+          }}>Reset to defaults</button>
+        </div>
+      )}
+      <TokensFooter/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
