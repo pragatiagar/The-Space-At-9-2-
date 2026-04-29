@@ -94,6 +94,20 @@ const TYPE_OPTS    = [
 ];
 const EFFORT_BL    = { none:0, very_low:6, low:11, medium:20, medium_high:25, high:32, upcoming:0 };
 
+/* ─────────────────────────────────────────────────────────────
+   DATA VERSION — bump this number whenever you update the data
+   below. Everyone's browser will reload from the new defaults
+   automatically on their next visit.
+───────────────────────────────────────────────────────────── */
+const DATA_VERSION = 1;
+
+/* ─────────────────────────────────────────────────────────────
+   JSONBIN CONFIG — paste your credentials from jsonbin.io here
+───────────────────────────────────────────────────────────── */
+const JSONBIN_ID  = '69f1b8d2856a68218986861d';
+const JSONBIN_KEY = '$2a$10$wOPcpLA/TDcCVVNuKP/AOe6sOmwEy984EOZAalafQr4d2rZxgcmZC';
+const JSONBIN_OK  = !JSONBIN_ID.includes('YOUR_');
+
 /* ═══════════════════════════════════════════════════════════════
    TEAM DATA
 ═══════════════════════════════════════════════════════════════ */
@@ -1221,27 +1235,64 @@ function TokensFooter() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   APP ROOT  — localStorage-backed state
+   APP ROOT  — JSONbin-backed state (localStorage fallback)
 ═══════════════════════════════════════════════════════════════ */
 function App() {
   const [view,     setView]     = useState('active');
   const [editMode, setEditMode] = useState(false);
+  const [loading,  setLoading]  = useState(JSONBIN_OK);
+  const [projects, setProjects] = useState(INITIAL_PROJECTS);
+  const [team,     setTeam]     = useState(INITIAL_TEAM);
+  const canSave = useRef(false); // gates saves until after initial load
 
-  const [projects, setProjects] = useState(() => {
-    try { const s = localStorage.getItem('s92_projects'); return s ? JSON.parse(s) : INITIAL_PROJECTS; }
-    catch { return INITIAL_PROJECTS; }
-  });
-  const [team, setTeam] = useState(() => {
-    try { const s = localStorage.getItem('s92_team'); return s ? JSON.parse(s) : INITIAL_TEAM; }
-    catch { return INITIAL_TEAM; }
-  });
+  /* ── load from JSONbin on mount ────────────────────────────── */
+  useEffect(() => {
+    if (!JSONBIN_OK) {
+      // No JSONbin — fall back to localStorage
+      try {
+        const v = localStorage.getItem('s92_version');
+        const p = localStorage.getItem('s92_projects');
+        const t = localStorage.getItem('s92_team');
+        if (p && v === String(DATA_VERSION)) setProjects(JSON.parse(p));
+        if (t && v === String(DATA_VERSION)) setTeam(JSON.parse(t));
+      } catch {}
+      canSave.current = true;
+      return;
+    }
+    (async () => {
+      try {
+        const res = await fetch(
+          `https://api.jsonbin.io/v3/b/${JSONBIN_ID}/latest`,
+          { headers: { 'X-Master-Key': JSONBIN_KEY } }
+        );
+        if (res.ok) {
+          const { record } = await res.json();
+          if (record.projects?.length) setProjects(record.projects);
+          if (record.team?.length)     setTeam(record.team);
+        }
+      } catch {}
+      setLoading(false);
+      canSave.current = true;
+    })();
+  }, []);
 
+  /* ── save to JSONbin + localStorage on every change ─────────── */
   useEffect(() => {
-    try { localStorage.setItem('s92_projects', JSON.stringify(projects)); } catch {}
-  }, [projects]);
-  useEffect(() => {
-    try { localStorage.setItem('s92_team', JSON.stringify(team)); } catch {}
-  }, [team]);
+    if (!canSave.current) return;
+    // localStorage (always)
+    try {
+      localStorage.setItem('s92_version',  String(DATA_VERSION));
+      localStorage.setItem('s92_projects', JSON.stringify(projects));
+      localStorage.setItem('s92_team',     JSON.stringify(team));
+    } catch {}
+    // JSONbin (if configured)
+    if (!JSONBIN_OK) return;
+    fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}`, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_KEY },
+      body:    JSON.stringify({ version: DATA_VERSION, projects, team }),
+    }).catch(() => {});
+  }, [projects, team]);
 
   const loads = useMemo(() => computeWorkloads(projects, team), [projects, team]);
 
@@ -1276,6 +1327,13 @@ function App() {
       setTeam(INITIAL_TEAM);
     }
   }
+
+  if (loading) return (
+    <div style={{ minHeight:'100vh', background:T.bg, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:14 }}>
+      <div style={{ fontFamily:T.serif, fontSize:22, fontWeight:500, color:T.text1 }}>Space at 9/2</div>
+      <div style={{ fontFamily:T.sans, fontSize:9, letterSpacing:'0.2em', textTransform:'uppercase', color:T.text3 }}>Loading…</div>
+    </div>
+  );
 
   return (
     <div style={{ minHeight:'100vh', background:T.bg, paddingBottom:8 }}>
