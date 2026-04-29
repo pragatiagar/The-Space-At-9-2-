@@ -86,13 +86,18 @@ const T = {
 const STATUS_OPTS  = ['Active','Slow','Production','Small Task','Research','Upcoming','On Hold','Closed'];
 const EFFORT_OPTS  = [
   ['none','None'], ['very_low','Very Low'], ['low','Low'],
-  ['medium','Medium'], ['medium_high','Medium–High'], ['high','High'], ['upcoming','Upcoming'],
+  ['medium','Moderate'], ['high','High'], ['critical','Critical'],
 ];
 const TYPE_OPTS    = [
-  ['design_work','Design Work'], ['strategy','Strategy'], ['oversight','Oversight'],
-  ['content','Content'], ['operations','Operations'], ['light','Support'],
+  ['design_work','Designing Phase'],
+  ['strategy','Strategy and Content'],
+  ['oversight','Supervision'],
+  ['discovery_research','Discovery and Research Phase'],
+  ['handover_prep','Handover Preparation'],
+  ['dev_coordination','Development Coordination'],
+  ['prod_coordination','Production Coordination'],
 ];
-const EFFORT_BL    = { none:0, very_low:6, low:11, medium:20, medium_high:25, high:32, upcoming:0 };
+const EFFORT_BL    = { none:0, very_low:6, low:11, medium:20, high:32, critical:45 };
 
 /* ─────────────────────────────────────────────────────────────
    DATA VERSION — bump this number whenever you update the data
@@ -354,17 +359,25 @@ function getStatusColor(s) {
   return m[s] || T.text3;
 }
 function effortLabel(e) {
-  const m = { none:'None', very_low:'Very Low', low:'Low', medium:'Medium', medium_high:'Medium–High', high:'High', upcoming:'Upcoming' };
+  const m = { none:'None', very_low:'Very Low', low:'Low', medium:'Moderate', high:'High', critical:'Critical' };
   return m[e] || e;
 }
 function effortColor(e) {
-  const m = { none:T.text3, very_low:T.text3, low:T.text2, medium:T.accent, medium_high:'#B87750', high:T.overload, upcoming:T.upcoming };
+  const m = { none:T.text3, very_low:T.text3, low:T.text2, medium:T.accent, high:T.overload, critical:'#7B1F1F' };
   return m[e] || T.text3;
 }
 function typeLabel(t) {
   const m = {
-    design_work:'Design Work', strategy:'Strategy', oversight:'Oversight',
-    content:'Content', operations:'Operations', light:'Support',
+    design_work:'Designing Phase',
+    strategy:'Strategy and Content',
+    oversight:'Supervision',
+    content:'Content',
+    operations:'Operations',
+    light:'Support',
+    discovery_research:'Discovery and Research Phase',
+    handover_prep:'Handover Preparation',
+    dev_coordination:'Development Coordination',
+    prod_coordination:'Production Coordination',
   };
   return m[t] || t;
 }
