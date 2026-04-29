@@ -83,7 +83,7 @@ const T = {
 /* ═══════════════════════════════════════════════════════════════
    EDIT OPTION LISTS
 ═══════════════════════════════════════════════════════════════ */
-const STATUS_OPTS  = ['Active','Slow','Production','Small Task','Research','Upcoming','On Hold','Closed'];
+const STATUS_OPTS  = ['In Progress','In Review','In Sampling','In Production','In Development','On Hold','Stalled','Handover Pending','Delivered','Closed'];
 const EFFORT_OPTS  = [
   ['none','None'], ['very_low','Very Low'], ['low','Low'],
   ['medium','Moderate'], ['high','High'], ['critical','Critical'],
@@ -104,7 +104,7 @@ const EFFORT_BL    = { none:0, very_low:6, low:11, medium:20, high:32, critical:
    below. Everyone's browser will reload from the new defaults
    automatically on their next visit.
 ───────────────────────────────────────────────────────────── */
-const DATA_VERSION = 1;
+const DATA_VERSION = 2;
 
 /* ─────────────────────────────────────────────────────────────
    JSONBIN CONFIG — paste your credentials from jsonbin.io here
@@ -124,17 +124,20 @@ const INITIAL_TEAM = [
   { id:'pragati', name:'Pragati Todi',         role:'Strategist',                  city:'Calcutta', isFounder:false, isCritical:true,  availOverride:null    },
   { id:'meghna',  name:'Meghna Bhadra',        role:'Mid-Level Designer',          city:'Calcutta', isFounder:false, isCritical:false, availOverride:null    },
   { id:'sakhi',   name:'Sakhi Samant',         role:'Mid-Level Designer',          city:'Mumbai',   isFounder:false, isCritical:false, availOverride:null    },
-  { id:'shruti',  name:'Shruti Kataria',       role:'Junior Designer',             city:'Mumbai',   isFounder:false, isCritical:false, availOverride:'maxed' },
-  { id:'disha',   name:'Disha Bhattacharya',   role:'Junior Designer',             city:'Calcutta', isFounder:false, isCritical:false, availOverride:'maxed' },
+  { id:'shruti',  name:'Shruti Kataria',       role:'Junior Designer',             city:'Mumbai',   isFounder:false, isCritical:false, availOverride:null },
+  { id:'disha',   name:'Disha Bhattacharya',   role:'Junior Designer',             city:'Calcutta', isFounder:false, isCritical:false, availOverride:null },
 ];
 
 /* ═══════════════════════════════════════════════════════════════
    STATUS MULTIPLIERS
 ═══════════════════════════════════════════════════════════════ */
 const STATUS_MX = {
-  'Active':1.0, 'Slow':0.4, 'Production':0.2,
-  'Small Task':0.3, 'Research':1.0,
-  'Upcoming':0, 'On Hold':0, 'Closed':0,
+  'In Progress':1.0, 'In Development':1.0,
+  'In Review':0.4,  'In Sampling':0.3, 'Handover Pending':0.3,
+  'In Production':0.2, 'Stalled':0.2,
+  'On Hold':0, 'Delivered':0, 'Closed':0,
+  // backward compat with existing data
+  'Active':1.0, 'Slow':0.4, 'Production':0.2, 'Small Task':0.3, 'Research':1.0, 'Upcoming':0,
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -342,19 +345,22 @@ function getCatLabel(cat) {
   return cat==='overloaded' ? 'Overloaded' : cat==='optimal' ? 'Optimal' : 'Underutilised';
 }
 function getAvailability(member, pct) {
-  if (member.availOverride === 'maxed') return 'maxed';
   if (pct >= 70) return 'partial';
   return 'available';
 }
-function availColor(a)  { return a==='maxed'?T.maxed : a==='partial'?T.partial : T.avail; }
-function availBg(a)     { return a==='maxed'?T.maxedBg : a==='partial'?T.partBg : T.availBg; }
-function availLabel(a)  { return a==='maxed'?'Temporarily Maxed Out' : a==='partial'?'Partially Available' : 'Available'; }
+function availColor(a)  { return a==='partial'?T.partial : T.avail; }
+function availBg(a)     { return a==='partial'?T.partBg  : T.availBg; }
+function availLabel(a)  { return a==='partial'?'Partially Available' : 'Available'; }
 
 function getStatusColor(s) {
   const m = {
+    'In Progress':'#4E7A5A', 'In Development':'#4E8A88',
+    'In Review':'#C9A96E',   'In Sampling':'#7B6FAB',
+    'In Production':'#5B7A99','Handover Pending':'#C4894A',
+    'Stalled':'#B24B43',     'On Hold':'#ABA49C',
+    'Delivered':'#7BAA8A',   'Closed':'#C8C4BE',
     'Active':'#4E7A5A','Slow':'#C9A96E','Production':'#5B7A99',
-    'Small Task':'#7B6FAB','Research':'#4E8A88',
-    'Upcoming':'#7B8EA0','On Hold':'#ABA49C','Closed':'#C8C4BE',
+    'Small Task':'#7B6FAB','Research':'#4E8A88','Upcoming':'#7B8EA0',
   };
   return m[s] || T.text3;
 }
@@ -566,7 +572,7 @@ function Masthead({ loads, view, setView, editMode, setEditMode, team, projects 
   const avgPct    = Math.round(totalLoad / (team.length * 100) * 100);
   const activeP   = projects.filter(p=>p.status==='Active').length;
   const availN    = team.filter(m => getAvailability(m, loads[m.id]?.total||0) === 'available').length;
-  const maxedN    = team.filter(m => getAvailability(m, loads[m.id]?.total||0) === 'maxed').length;
+  const overN     = team.filter(m => (loads[m.id]?.total||0) > 120).length;
 
   return (
     <header style={{
@@ -600,7 +606,7 @@ function Masthead({ loads, view, setView, editMode, setEditMode, team, projects 
             null,
             { val:availN,        label:'Available Now', color:T.avail },
             null,
-            { val:`${maxedN} wk`,label:'Maxed — 2 Weeks', color:T.maxed },
+            { val:overN,         label:'Overloaded', color:T.overload },
             null,
             { val:activeP,       label:'Active Projects' },
             null,
@@ -689,7 +695,7 @@ function OverviewStrip({ loads, team }) {
                   background: m.city==='Calcutta'?'#9B8BBF' : m.city==='Studio'?T.accent : '#C4894A',
                 }}/>
                 <span style={{ fontFamily:T.sans, fontSize:7, fontWeight:700, letterSpacing:'0.06em', color:availColor(avail) }}>
-                  {avail==='maxed' ? '⊘ MAXED' : avail==='partial' ? '◑ PARTIAL' : '● AVAIL'}
+                  {avail==='partial' ? '◑ PARTIAL' : '● AVAIL'}
                 </span>
               </div>
 
@@ -729,7 +735,7 @@ function OverviewStrip({ loads, team }) {
 /* ═══════════════════════════════════════════════════════════════
    TEAM WORKLOAD — left column
 ═══════════════════════════════════════════════════════════════ */
-function TeamWorkload({ loads, view, team, projects, editMode, onToggleMaxed }) {
+function TeamWorkload({ loads, view, team, projects, editMode }) {
   const [exp, setExp] = useState(null);
   const sorted = [...team].sort((a,b) => (loads[b.id]?.total||0)-(loads[a.id]?.total||0));
 
@@ -768,7 +774,6 @@ function TeamWorkload({ loads, view, team, projects, editMode, onToggleMaxed }) 
                     <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap', marginBottom:2 }}>
                       <span style={{ fontFamily:T.sans, fontSize:13, fontWeight:600, color:T.text1 }}>{m.name}</span>
                       {m.isCritical && <Pill color={T.critical} bg={T.critBg}>Critical Resource</Pill>}
-                      {avail==='maxed' && <Pill color={T.maxed} bg={T.maxedBg}>Maxed — 2 wks</Pill>}
                     </div>
                     <div style={{ fontFamily:T.sans, fontSize:10, color:T.text3 }}>
                       {m.role} · {m.city}
@@ -782,22 +787,6 @@ function TeamWorkload({ loads, view, team, projects, editMode, onToggleMaxed }) 
                         {availLabel(avail)}
                       </div>
                     </div>
-                    {editMode && (
-                      <button
-                        onClick={e=>{ e.stopPropagation(); onToggleMaxed(m.id); }}
-                        title={avail==='maxed' ? 'Mark as Normal' : 'Mark as Maxed'}
-                        style={{
-                          marginTop:2, padding:'3px 8px', borderRadius:3, cursor:'pointer',
-                          fontFamily:T.sans, fontSize:8, fontWeight:700, letterSpacing:'0.06em',
-                          border:`1px solid ${avail==='maxed' ? T.maxed : T.border}`,
-                          background: avail==='maxed' ? T.maxedBg : T.bgAlt,
-                          color:       avail==='maxed' ? T.maxed    : T.text3,
-                          textTransform:'uppercase',
-                        }}
-                      >
-                        {avail==='maxed' ? '⊘ Maxed' : '○ Normal'}
-                      </button>
-                    )}
                   </div>
                 </div>
 
@@ -896,7 +885,12 @@ function ProjectIndex({ projects, team, editMode, onUpdateProject, onUpdateContr
   const [exp, setExp] = useState(null);
 
   const sorted = [...projects].sort((a,b) => {
-    const ord = {'Active':0,'Production':1,'Slow':2,'Small Task':3,'Research':1,'Upcoming':4,'On Hold':5,'Closed':6};
+    const ord = {
+      'In Progress':0,'In Development':1,'In Review':2,'In Sampling':3,
+      'Handover Pending':4,'In Production':5,'Stalled':6,
+      'On Hold':7,'Delivered':8,'Closed':9,
+      'Active':0,'Slow':2,'Production':5,'Small Task':3,'Research':1,'Upcoming':7,
+    };
     const la  = Object.values(a.contributors).reduce((s,c)=>s+Math.round(c.bl*(STATUS_MX[a.status]??0)),0);
     const lb  = Object.values(b.contributors).reduce((s,c)=>s+Math.round(c.bl*(STATUS_MX[b.status]??0)),0);
     const oa  = ord[a.status]??9, ob = ord[b.status]??9;
@@ -923,7 +917,7 @@ function ProjectIndex({ projects, team, editMode, onUpdateProject, onUpdateContr
         const mx        = STATUS_MX[proj.status] ?? 0;
         const load      = Object.values(proj.contributors).reduce((s,c)=>s+Math.round(c.bl*mx),0);
         const contribs  = Object.entries(proj.contributors);
-        const isActive  = proj.status === 'Active' || proj.status === 'Slow' || proj.status === 'Production' || proj.status === 'Small Task' || proj.status === 'Research';
+        const isActive  = ['In Progress','In Development','In Review','In Sampling','In Production','Stalled','Handover Pending','Active','Slow','Production','Small Task','Research'].includes(proj.status);
         const isExp     = exp === proj.id;
         const sColor    = getStatusColor(proj.status);
         const last      = i===sorted.length-1;
@@ -1109,9 +1103,9 @@ function AllocationPanel({ loads, team, projects }) {
     avail: getAvailability(m, loads[m.id]?.total||0),
   }));
 
-  const available = withAvail.filter(m=>m.avail==='available').sort((a,b)=>a.pct-b.pct);
-  const partial   = withAvail.filter(m=>m.avail==='partial').sort((a,b)=>b.pct-a.pct);
-  const maxed     = withAvail.filter(m=>m.avail==='maxed');
+  const available  = withAvail.filter(m=>m.avail==='available').sort((a,b)=>a.pct-b.pct);
+  const partial    = withAvail.filter(m=>m.avail==='partial' && m.pct<=120).sort((a,b)=>b.pct-a.pct);
+  const overloaded = withAvail.filter(m=>m.pct>120).sort((a,b)=>b.pct-a.pct);
 
   const pragatiTotal = loads['pragati']?.total || 0;
   const pragatiInt   = (loads['pragati']?.byProject||[]).filter(p=>['bd','finance','borrowed_sm'].includes(p.id)).reduce((s,p)=>s+p.load,0);
@@ -1122,8 +1116,8 @@ function AllocationPanel({ loads, team, projects }) {
       body:`Finance runs entirely through Pragati. Invoicing, PnL, forecasting, and scope negotiations have no backup or delegation path. ${pragatiInt > 0 ? `Internal work represents ${Math.round((pragatiInt/pragatiTotal)*100)}% of her ${pragatiTotal}% total load.` : ''} This is the studio's highest structural risk.`,
     },
     {
-      label:'Borrowed Earth AI Gen — Design Blocked for 2 Weeks',
-      body:'Disha and Shruti are the sole design contributors on this project at HIGH intensity. Both carry the Temporarily Maxed Out status for the next two weeks. Bombaim (Disha) and Dev Ratnam (Shruti) also remain active — there is no design backup available within the current team.',
+      label:'Borrowed Earth AI Gen — Design Bandwidth at Risk',
+      body:'Disha and Shruti are the sole design contributors on this project at HIGH intensity. Bombaim (Disha) and Dev Ratnam (Shruti) also remain active — there is no design backup available within the current team.',
     },
     {
       label:'Leadership Touch — Anahita Across All Active Projects',
@@ -1176,11 +1170,11 @@ function AllocationPanel({ loads, team, projects }) {
             : partial.map(m => memberRow(m, m.pct>=100?'At capacity — light work only':null))}
         </div>
 
-        <div style={{ padding:'16px 16px', background:T.maxedBg, borderRadius:6, border:`1px solid ${T.maxed}18` }}>
-          {colHead('No Availability — 2 Weeks', T.maxed)}
-          {maxed.length===0
+        <div style={{ padding:'16px 16px', background:T.overBg, borderRadius:6, border:`1px solid ${T.overload}18` }}>
+          {colHead('Overloaded', T.overload)}
+          {overloaded.length===0
             ? <div style={{ fontFamily:T.sans, fontSize:11, color:T.text3 }}>None at this time</div>
-            : maxed.map(m => memberRow(m, 'AI Gen retainer at HIGH intensity'))}
+            : overloaded.map(m => memberRow(m, 'Over capacity'))}
         </div>
       </div>
 
@@ -1219,7 +1213,7 @@ function TokensFooter() {
     { label:'Optimal',     val:'#4E7A5A', c:'#4E7A5A' },
     { label:'Overloaded',  val:'#B24B43', c:'#B24B43' },
     { label:'Underutil.',  val:'#5B7A99', c:'#5B7A99' },
-    { label:'Maxed Out',   val:'#B24B43', c:'#B24B43' },
+    { label:'Overloaded',  val:'#B24B43', c:'#B24B43' },
     { label:'Partial',     val:'#8B6914', c:'#C9A96E' },
     { label:'Critical',    val:'#C4894A', c:'#C4894A' },
     { label:'Social Media',val:'#4E8A88', c:'#4E8A88' },
@@ -1329,11 +1323,6 @@ function App() {
   }
   function addProject(proj)  { setProjects(ps => [...ps, proj]); }
   function removeProject(id) { setProjects(ps => ps.filter(p => p.id!==id)); }
-  function toggleMemberMaxed(memberId) {
-    setTeam(tm => tm.map(m =>
-      m.id===memberId ? {...m, availOverride: m.availOverride==='maxed' ? null : 'maxed'} : m
-    ));
-  }
   function resetToDefaults() {
     if (window.confirm('Reset all data to defaults? This cannot be undone.')) {
       setProjects(INITIAL_PROJECTS);
@@ -1342,9 +1331,27 @@ function App() {
   }
 
   if (loading) return (
-    <div style={{ minHeight:'100vh', background:T.bg, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:14 }}>
-      <div style={{ fontFamily:T.serif, fontSize:22, fontWeight:500, color:T.text1 }}>Space at 9/2</div>
-      <div style={{ fontFamily:T.sans, fontSize:9, letterSpacing:'0.2em', textTransform:'uppercase', color:T.text3 }}>Loading…</div>
+    <div style={{ minHeight:'100vh', background:'#FFFFFF', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:28 }}>
+      {/* Logo */}
+      {(() => {
+        const box = { border:'1.5px solid #12152A', padding:'11px 18px', display:'inline-flex', alignItems:'center', justifyContent:'center' };
+        const lbl = { fontFamily:"'Inter',-apple-system,sans-serif", fontWeight:600, fontSize:13, letterSpacing:'0.26em', color:'#12152A' };
+        return (
+          <div style={{ display:'inline-flex', flexDirection:'column', alignItems:'flex-start', gap:5 }}>
+            <div style={box}><span style={lbl}>THE</span></div>
+            <div style={{ display:'flex', gap:5 }}>
+              <div style={box}><span style={lbl}>SPACE</span></div>
+              <div style={box}><span style={lbl}>AT</span></div>
+            </div>
+            <div style={{ alignSelf:'stretch', display:'flex', justifyContent:'center' }}>
+              <div style={box}><span style={lbl}>9/2</span></div>
+            </div>
+          </div>
+        );
+      })()}
+      <div style={{ fontFamily:T.sans, fontSize:9, fontWeight:600, letterSpacing:'0.22em', textTransform:'uppercase', color:'#ABA49C' }}>
+        Resource Intelligence Dashboard
+      </div>
     </div>
   );
 
@@ -1363,7 +1370,7 @@ function App() {
       }}>
         <TeamWorkload
           loads={loads} view={view} team={team} projects={projects}
-          editMode={editMode} onToggleMaxed={toggleMemberMaxed}
+          editMode={editMode}
         />
         <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
           <ProjectIndex
