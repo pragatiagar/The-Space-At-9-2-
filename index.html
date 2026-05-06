@@ -96,14 +96,6 @@ const TYPE_OPTS    = [
   ['handover_prep','Handover Preparation'],
   ['dev_coordination','Development Coordination'],
   ['prod_coordination','Production Coordination'],
-  ['billing','Billing & Invoicing'],
-  ['payroll','Payroll'],
-  ['ops_mgmt','Operation Management'],
-  ['admin','Administration'],
-  ['hr','HR'],
-  ['team_culture','Team Culture'],
-  ['contracts','Contracts & Legal'],
-  ['scoping','Scoping / Proposals'],
 ];
 const EFFORT_BL    = { none:0, very_low:6, low:11, medium:20, high:32, critical:45 };
 
@@ -392,14 +384,6 @@ function typeLabel(t) {
     handover_prep:'Handover Preparation',
     dev_coordination:'Development Coordination',
     prod_coordination:'Production Coordination',
-    billing:'Billing & Invoicing',
-    payroll:'Payroll',
-    ops_mgmt:'Operation Management',
-    admin:'Administration',
-    hr:'HR',
-    team_culture:'Team Culture',
-    contracts:'Contracts & Legal',
-    scoping:'Scoping / Proposals',
   };
   return m[t] || t;
 }
