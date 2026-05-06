@@ -1,0 +1,15 @@
+{
+  "name": "the-space-at-9-2",
+  "version": "1.0.0",
+  "description": "Space at 9/2 — Resource Intelligence",
+  "private": true,
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'Static HTML site - no build required'",
+    "lint": "echo 'No linter configured'",
+    "test": "echo 'No tests configured'"
+  },
+  "dependencies": {
+    "@vercel/speed-insights": "^1.1.0"
+  }
+}

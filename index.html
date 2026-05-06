@@ -10,6 +10,7 @@
 <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script defer src="/_vercel/speed-insights/script.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
@@ -315,7 +316,7 @@ const INITIAL_PROJECTS = [
 
 /* ═══════════════════════════════════════════════════════════════
    COMPUTATION
-═══════════════════════════════════════════════════════════════ */
+═════════════════════════════════════════���═════════════════════ */
 function computeWorkloads(projects, team) {
   const loads = {};
   team.forEach(m => { loads[m.id] = { total:0, byProject:[] }; });
