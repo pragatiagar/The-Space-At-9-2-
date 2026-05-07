@@ -353,12 +353,13 @@ function getCatLabel(cat) {
   return cat==='overloaded' ? 'Overloaded' : cat==='optimal' ? 'Optimal' : 'Underutilised';
 }
 function getAvailability(member, pct) {
-  if (pct >= 70) return 'partial';
+  if (pct >= 100) return 'unavailable';
+  if (pct >= 70)  return 'partial';
   return 'available';
 }
-function availColor(a)  { return a==='partial'?T.partial : T.avail; }
-function availBg(a)     { return a==='partial'?T.partBg  : T.availBg; }
-function availLabel(a)  { return a==='partial'?'Partially Available' : 'Available'; }
+function availColor(a)  { return a==='unavailable'?T.overload : a==='partial'?T.partial : T.avail; }
+function availBg(a)     { return a==='unavailable'?T.overBg   : a==='partial'?T.partBg  : T.availBg; }
+function availLabel(a)  { return a==='unavailable'?'Not Available' : a==='partial'?'Partially Available' : 'Available'; }
 
 function getStatusColor(s) {
   const m = {
@@ -660,7 +661,13 @@ function Masthead({ loads, view, setView, editMode, setEditMode, team, projects 
           </div>
 
           {/* Edit mode toggle */}
-          <button onClick={()=>setEditMode(e=>!e)} style={{
+          <button onClick={()=>{
+            if (!editMode) {
+              const code = window.prompt('Enter passcode to enable editing:');
+              if (code !== 'dash2026') return;
+            }
+            setEditMode(e=>!e);
+          }} style={{
             padding:'5px 14px', borderRadius:4, cursor:'pointer',
             background: editMode ? T.accent : T.bgAlt,
             color:      editMode ? '#fff'   : T.text2,
@@ -711,7 +718,7 @@ function OverviewStrip({ loads, team }) {
                   background: m.city==='Calcutta'?'#9B8BBF' : m.city==='Studio'?T.accent : '#C4894A',
                 }}/>
                 <span style={{ fontFamily:T.sans, fontSize:7, fontWeight:700, letterSpacing:'0.06em', color:availColor(avail) }}>
-                  {avail==='partial' ? '◑ PARTIAL' : '● AVAIL'}
+                  {avail==='unavailable' ? '○ FULL' : avail==='partial' ? '◑ PARTIAL' : '● AVAIL'}
                 </span>
               </div>
 
@@ -1120,8 +1127,8 @@ function AllocationPanel({ loads, team, projects }) {
   }));
 
   const available  = withAvail.filter(m=>m.avail==='available').sort((a,b)=>a.pct-b.pct);
-  const partial    = withAvail.filter(m=>m.avail==='partial' && m.pct<=120).sort((a,b)=>b.pct-a.pct);
-  const overloaded = withAvail.filter(m=>m.pct>120).sort((a,b)=>b.pct-a.pct);
+  const partial    = withAvail.filter(m=>m.avail==='partial').sort((a,b)=>b.pct-a.pct);
+  const overloaded = withAvail.filter(m=>m.avail==='unavailable').sort((a,b)=>b.pct-a.pct);
 
   const pragatiTotal = loads['pragati']?.total || 0;
   const pragatiInt   = (loads['pragati']?.byProject||[]).filter(p=>['bd','finance','borrowed_sm'].includes(p.id)).reduce((s,p)=>s+p.load,0);
@@ -1183,14 +1190,14 @@ function AllocationPanel({ loads, team, projects }) {
           {colHead('Partially Available', T.partial)}
           {partial.length===0
             ? <div style={{ fontFamily:T.sans, fontSize:11, color:T.text3 }}>None at this time</div>
-            : partial.map(m => memberRow(m, m.pct>=100?'At capacity — light work only':null))}
+            : partial.map(m => memberRow(m))}
         </div>
 
         <div style={{ padding:'16px 16px', background:T.overBg, borderRadius:6, border:`1px solid ${T.overload}18` }}>
-          {colHead('Overloaded', T.overload)}
+          {colHead('At / Over Capacity', T.overload)}
           {overloaded.length===0
             ? <div style={{ fontFamily:T.sans, fontSize:11, color:T.text3 }}>None at this time</div>
-            : overloaded.map(m => memberRow(m, 'Over capacity'))}
+            : overloaded.map(m => memberRow(m, m.pct > 120 ? 'Over capacity' : 'At capacity — no new work'))}
         </div>
       </div>
 
