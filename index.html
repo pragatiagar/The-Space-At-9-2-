@@ -83,27 +83,31 @@ const T = {
 /* ═══════════════════════════════════════════════════════════════
    EDIT OPTION LISTS
 ═══════════════════════════════════════════════════════════════ */
-const STATUS_OPTS  = ['In Progress','In Review','In Sampling','In Production','In Development','On Hold','Stalled','Handover Pending','Delivered','Closed'];
+const STATUS_OPTS  = ['Yet to Begin','Awaiting Brief','Kick-Off','Team Allocation','In Progress','In Review','In Sampling','In Production','In Development','On Hold','Stalled','Handover Pending','Delivered','Closed'];
 const EFFORT_OPTS  = [
   ['none','None'], ['very_low','Very Low'], ['low','Low'],
   ['medium','Moderate'], ['high','High'], ['critical','Critical'],
 ];
 const TYPE_OPTS    = [
-  ['design_work','Designing Phase'],
-  ['strategy','Strategy and Content'],
-  ['oversight','Supervision'],
-  ['discovery_research','Discovery and Research Phase'],
-  ['handover_prep','Handover Preparation'],
-  ['dev_coordination','Development Coordination'],
-  ['prod_coordination','Production Coordination'],
-  ['billing','Billing & Invoicing'],
+  ['research','Research & Positioning'],
+  ['narrative','Narrative Direction'],
+  ['concept','Concept Development'],
+  ['visual_research','Visual Research'],
+  ['vi_design','VI Design Exploration'],
+  ['development','Development'],
+  ['production','Production'],
+  ['sampling','Sampling'],
+  ['client_review','Client Review'],
+  ['launch_planning','Launch Planning'],
+  ['handover','Handover'],
+  ['archiving','Archiving & Documentation'],
+  ['contracts','Contract & Legal'],
+  ['invoicing','Invoicing'],
   ['payroll','Payroll'],
-  ['ops_mgmt','Operation Management'],
-  ['admin','Administration'],
-  ['hr','HR'],
+  ['bd_outreach','BD Outreach'],
+  ['ops_systems','Operations & System Building'],
   ['team_culture','Team Culture'],
-  ['contracts','Contracts & Legal'],
-  ['scoping','Scoping / Proposals'],
+  ['admin','Admin'],
 ];
 const EFFORT_BL    = { none:0, very_low:6, low:11, medium:20, high:32, critical:45 };
 
@@ -143,7 +147,8 @@ const STATUS_MX = {
   'In Progress':1.0, 'In Development':1.0,
   'In Review':0.4,  'In Sampling':0.3, 'Handover Pending':0.3,
   'In Production':0.2, 'Stalled':0.2,
-  'On Hold':0, 'Delivered':0, 'Closed':0,
+  'Kick-Off':0.3, 'Team Allocation':0.15, 'Awaiting Brief':0.05,
+  'Yet to Begin':0, 'On Hold':0, 'Delivered':0, 'Closed':0,
   // backward compat with existing data
   'Active':1.0, 'Slow':0.4, 'Production':0.2, 'Small Task':0.3, 'Research':1.0, 'Upcoming':0,
 };
@@ -368,6 +373,8 @@ function getStatusColor(s) {
     'In Production':'#5B7A99','Handover Pending':'#C4894A',
     'Stalled':'#B24B43',     'On Hold':'#ABA49C',
     'Delivered':'#7BAA8A',   'Closed':'#C8C4BE',
+    'Kick-Off':'#4E7A5A',    'Team Allocation':'#5B7A99',
+    'Awaiting Brief':'#ABA49C','Yet to Begin':'#C8C4BE',
     'Active':'#4E7A5A','Slow':'#C9A96E','Production':'#5B7A99',
     'Small Task':'#7B6FAB','Research':'#4E8A88','Upcoming':'#7B8EA0',
   };
@@ -383,24 +390,40 @@ function effortColor(e) {
 }
 function typeLabel(t) {
   const m = {
-    design_work:'Designing Phase',
-    strategy:'Strategy and Content',
-    oversight:'Supervision',
-    content:'Content',
-    operations:'Operations',
-    light:'Support',
-    discovery_research:'Discovery and Research Phase',
-    handover_prep:'Handover Preparation',
-    dev_coordination:'Development Coordination',
-    prod_coordination:'Production Coordination',
-    billing:'Billing & Invoicing',
+    research:'Research & Positioning',
+    narrative:'Narrative Direction',
+    concept:'Concept Development',
+    visual_research:'Visual Research',
+    vi_design:'VI Design Exploration',
+    development:'Development',
+    production:'Production',
+    sampling:'Sampling',
+    client_review:'Client Review',
+    launch_planning:'Launch Planning',
+    handover:'Handover',
+    archiving:'Archiving & Documentation',
+    contracts:'Contract & Legal',
+    invoicing:'Invoicing',
     payroll:'Payroll',
-    ops_mgmt:'Operation Management',
-    admin:'Administration',
-    hr:'HR',
+    bd_outreach:'BD Outreach',
+    ops_systems:'Operations & System Building',
     team_culture:'Team Culture',
-    contracts:'Contracts & Legal',
-    scoping:'Scoping / Proposals',
+    admin:'Admin',
+    // backward compat
+    design_work:'VI Design Exploration',
+    strategy:'Research & Positioning',
+    oversight:'Client Review',
+    content:'Narrative Direction',
+    operations:'Operations & System Building',
+    light:'Client Review',
+    discovery_research:'Research & Positioning',
+    handover_prep:'Handover',
+    dev_coordination:'Development',
+    prod_coordination:'Production',
+    billing:'Invoicing',
+    ops_mgmt:'Operations & System Building',
+    hr:'Admin',
+    scoping:'BD Outreach',
   };
   return m[t] || t;
 }
@@ -910,8 +933,9 @@ function ProjectIndex({ projects, team, editMode, onUpdateProject, onUpdateContr
   const sorted = [...projects].sort((a,b) => {
     const ord = {
       'In Progress':0,'In Development':1,'In Review':2,'In Sampling':3,
-      'Handover Pending':4,'In Production':5,'Stalled':6,
-      'On Hold':7,'Delivered':8,'Closed':9,
+      'Handover Pending':4,'In Production':5,'Stalled':6,'Kick-Off':1,
+      'Team Allocation':2,'Awaiting Brief':6,
+      'On Hold':7,'Yet to Begin':7,'Delivered':8,'Closed':9,
       'Active':0,'Slow':2,'Production':5,'Small Task':3,'Research':1,'Upcoming':7,
     };
     const la  = Object.values(a.contributors).reduce((s,c)=>s+Math.round(c.bl*(STATUS_MX[a.status]??0)),0);
@@ -940,7 +964,7 @@ function ProjectIndex({ projects, team, editMode, onUpdateProject, onUpdateContr
         const mx        = STATUS_MX[proj.status] ?? 0;
         const load      = Object.values(proj.contributors).reduce((s,c)=>s+Math.round(c.bl*mx),0);
         const contribs  = Object.entries(proj.contributors);
-        const isActive  = ['In Progress','In Development','In Review','In Sampling','In Production','Stalled','Handover Pending','Active','Slow','Production','Small Task','Research'].includes(proj.status);
+        const isActive  = ['In Progress','In Development','In Review','In Sampling','In Production','Stalled','Handover Pending','Kick-Off','Team Allocation','Awaiting Brief','Active','Slow','Production','Small Task','Research'].includes(proj.status);
         const isExp     = exp === proj.id;
         const sColor    = getStatusColor(proj.status);
         const last      = i===sorted.length-1;
