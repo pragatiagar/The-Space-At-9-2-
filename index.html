@@ -83,7 +83,33 @@ const T = {
 /* ═══════════════════════════════════════════════════════════════
    EDIT OPTION LISTS
 ═══════════════════════════════════════════════════════════════ */
-const STATUS_OPTS  = ['In Progress','In Review','In Sampling','In Production','In Development','On Hold','Stalled','Handover Pending','Delivered','Closed'];
+const STATUS_OPTS  = [
+  // ── Pre-project / BD ──
+  'Yet to Begin',
+  'BD Outreach',
+  'Proposal Sent',
+  'In Negotiation',
+  'Contract Pending',
+  'Scoping',
+  // ── Early stage ──
+  'Kick-off',
+  'Team Allocation',
+  'Awaiting Brief',
+  'Brief & Discovery',
+  // ── Active production ──
+  'In Progress',
+  'In Development',
+  'In Review',
+  'In Sampling',
+  'In Production',
+  'Handover Pending',
+  // ── Problem states ──
+  'Stalled',
+  'On Hold',
+  // ── Done ──
+  'Delivered',
+  'Closed',
+];
 const EFFORT_OPTS  = [
   ['none','None'], ['very_low','Very Low'], ['low','Low'],
   ['medium','Moderate'], ['high','High'], ['critical','Critical'],
@@ -140,10 +166,18 @@ const INITIAL_TEAM = [
    STATUS MULTIPLIERS
 ═══════════════════════════════════════════════════════════════ */
 const STATUS_MX = {
-  'In Progress':1.0, 'In Development':1.0,
-  'In Review':0.4,  'In Sampling':0.3, 'Handover Pending':0.3,
+  // Active production
+  'In Progress':1.0, 'In Development':1.0, 'Brief & Discovery':0.7,
+  'In Review':0.4,   'In Sampling':0.3,    'Handover Pending':0.3,
   'In Production':0.2, 'Stalled':0.2,
-  'On Hold':0, 'Delivered':0, 'Closed':0,
+  // Early stage
+  'Kick-off':0.3, 'Scoping':0.4, 'Team Allocation':0.15,
+  'Awaiting Brief':0.05,
+  // BD
+  'BD Outreach':0.25, 'Proposal Sent':0.15,
+  'In Negotiation':0.3, 'Contract Pending':0.1,
+  // Inactive
+  'Yet to Begin':0, 'On Hold':0, 'Delivered':0, 'Closed':0,
   // backward compat with existing data
   'Active':1.0, 'Slow':0.4, 'Production':0.2, 'Small Task':0.3, 'Research':1.0, 'Upcoming':0,
 };
@@ -363,11 +397,21 @@ function availLabel(a)  { return a==='unavailable'?'Not Available' : a==='partia
 
 function getStatusColor(s) {
   const m = {
-    'In Progress':'#4E7A5A', 'In Development':'#4E8A88',
-    'In Review':'#C9A96E',   'In Sampling':'#7B6FAB',
-    'In Production':'#5B7A99','Handover Pending':'#C4894A',
-    'Stalled':'#B24B43',     'On Hold':'#ABA49C',
-    'Delivered':'#7BAA8A',   'Closed':'#C8C4BE',
+    // Active production
+    'In Progress':'#4E7A5A',   'In Development':'#4E8A88',
+    'Brief & Discovery':'#4E8A88',
+    'In Review':'#C9A96E',     'In Sampling':'#7B6FAB',
+    'In Production':'#5B7A99', 'Handover Pending':'#C4894A',
+    'Stalled':'#B24B43',       'On Hold':'#ABA49C',
+    'Delivered':'#7BAA8A',     'Closed':'#C8C4BE',
+    // Early stage
+    'Kick-off':'#4E7A5A',      'Scoping':'#7B6FAB',
+    'Team Allocation':'#5B7A99','Awaiting Brief':'#ABA49C',
+    // BD
+    'BD Outreach':'#C4894A',   'Proposal Sent':'#C9A96E',
+    'In Negotiation':'#8B6914','Contract Pending':'#7B8EA0',
+    'Yet to Begin':'#C8C4BE',
+    // backward compat
     'Active':'#4E7A5A','Slow':'#C9A96E','Production':'#5B7A99',
     'Small Task':'#7B6FAB','Research':'#4E8A88','Upcoming':'#7B8EA0',
   };
@@ -909,10 +953,17 @@ function ProjectIndex({ projects, team, editMode, onUpdateProject, onUpdateContr
 
   const sorted = [...projects].sort((a,b) => {
     const ord = {
-      'In Progress':0,'In Development':1,'In Review':2,'In Sampling':3,
-      'Handover Pending':4,'In Production':5,'Stalled':6,
-      'On Hold':7,'Delivered':8,'Closed':9,
-      'Active':0,'Slow':2,'Production':5,'Small Task':3,'Research':1,'Upcoming':7,
+      // Most active — float to top
+      'In Progress':0,'In Development':0,'Brief & Discovery':1,
+      'Kick-off':2,'Scoping':2,'In Negotiation':2,
+      'In Review':3,'Team Allocation':3,
+      'In Sampling':4,'BD Outreach':4,'Proposal Sent':4,
+      'Handover Pending':5,'Contract Pending':5,
+      'In Production':6,'Stalled':6,'Awaiting Brief':6,
+      'On Hold':7,'Yet to Begin':7,
+      'Delivered':8,'Closed':9,
+      // backward compat
+      'Active':0,'Slow':3,'Production':6,'Small Task':4,'Research':1,'Upcoming':7,
     };
     const la  = Object.values(a.contributors).reduce((s,c)=>s+Math.round(c.bl*(STATUS_MX[a.status]??0)),0);
     const lb  = Object.values(b.contributors).reduce((s,c)=>s+Math.round(c.bl*(STATUS_MX[b.status]??0)),0);
@@ -940,7 +991,7 @@ function ProjectIndex({ projects, team, editMode, onUpdateProject, onUpdateContr
         const mx        = STATUS_MX[proj.status] ?? 0;
         const load      = Object.values(proj.contributors).reduce((s,c)=>s+Math.round(c.bl*mx),0);
         const contribs  = Object.entries(proj.contributors);
-        const isActive  = ['In Progress','In Development','In Review','In Sampling','In Production','Stalled','Handover Pending','Active','Slow','Production','Small Task','Research'].includes(proj.status);
+        const isActive  = ['In Progress','In Development','In Review','In Sampling','In Production','Stalled','Handover Pending','Brief & Discovery','Kick-off','Scoping','Team Allocation','Awaiting Brief','BD Outreach','Proposal Sent','In Negotiation','Contract Pending','Active','Slow','Production','Small Task','Research'].includes(proj.status);
         const isExp     = exp === proj.id;
         const sColor    = getStatusColor(proj.status);
         const last      = i===sorted.length-1;
