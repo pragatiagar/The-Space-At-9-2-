@@ -89,6 +89,15 @@ const PROJ_TYPE_OPTS = [
   ['studio_growth', 'Studio Growth'],
   ['personal',      'Personal Project'],
 ];
+const PRIORITY_OPTS = [
+  ['',       'No Priority'],
+  ['high',   '↑ High'],
+  ['medium', '→ Medium'],
+  ['low',    '↓ Low'],
+];
+const PRIORITY_COLOR = { high: '#B24B43', medium: '#C9A96E', low: '#5B7A99' };
+const PRIORITY_BG    = { high: '#F9EEEC', medium: '#FBF5E6', low: '#EBF0F6' };
+const PRIORITY_LABEL = { high: '↑ High', medium: '→ Medium', low: '↓ Low' };
 /* Four-state workload signal — replaces effort labels in the UI */
 const SIGNAL_OPTS = [
   ['not_active', '⚪ Quiet'],
@@ -224,7 +233,7 @@ const INITIAL_PROJECTS = [
   },
   {
     id:'borrowed_web', name:'Borrowed Earth', category:'Website Retainer — AI Gen',
-    status:'Active', isHighLoad:true, projType:'billable',
+    status:'Active', projType:'billable',
     contributors:{
       disha:   { type:'design_work', effort:'high',      bl:32 },
       shruti:  { type:'design_work', effort:'high',      bl:32 },
@@ -356,7 +365,7 @@ function computeWorkloads(projects, team) {
         id:proj.id, name:proj.name, category:proj.category,
         load, type:c.type, effort:c.effort, status:proj.status,
         projType: pt, signal: c.signal || null,
-        isHighLoad:proj.isHighLoad||false, isNew:proj.isNew||false,
+        priority: proj.priority || '', isNew:proj.isNew||false,
         isUpcoming: c.isUpcoming || (mx===0 && proj.status!=='Closed'),
         isDesignHold,
       });
@@ -953,8 +962,8 @@ function TeamWorkload({ loads, view, team, projects, editMode }) {
                             <div style={{ width:7, height:7, borderRadius:2, background:projTypeColor(proj.projType), flexShrink:0 }} title={projTypeLabel(proj.projType)}/>
                             <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:600, color:T.text1 }}>{proj.name}</span>
                             <span style={{ fontFamily:T.sans, fontSize:9, color:T.text3 }}>{proj.category}</span>
-                            {proj.isHighLoad   && <Pill color={T.overload} bg={T.overBg} size={7}>High Load</Pill>}
-                            {proj.isNew        && <Pill color={T.sm}       bg={T.smBg}   size={7}>New</Pill>}
+                            {proj.priority && <Pill color={PRIORITY_COLOR[proj.priority]} bg={PRIORITY_BG[proj.priority]} size={7}>{PRIORITY_LABEL[proj.priority]}</Pill>}
+                            {proj.isNew    && <Pill color={T.sm} bg={T.smBg} size={7}>New</Pill>}
                             {proj.isUpcoming   && <Pill color={T.upcoming} bg={T.upBg}   size={7}>Upcoming</Pill>}
                             {proj.isDesignHold && <Pill color={T.text3}    bg={T.bgAlt}  size={7}>On Hold — Design</Pill>}
                           </div>
@@ -1064,8 +1073,8 @@ function ProjectIndex({ projects, team, editMode, onUpdateProject, onUpdateContr
                   <span style={{ fontFamily:T.sans, fontSize:9, color:catHue(proj.category), flexShrink:0 }}>
                     {proj.category}
                   </span>
-                  {proj.isHighLoad && <Pill color={T.overload} bg={T.overBg} size={7}>High Load</Pill>}
-                  {proj.isNew      && <Pill color={T.sm}       bg={T.smBg}   size={7}>New</Pill>}
+                  {proj.priority && <Pill color={PRIORITY_COLOR[proj.priority]} bg={PRIORITY_BG[proj.priority]} size={7}>{PRIORITY_LABEL[proj.priority]}</Pill>}
+                  {proj.isNew    && <Pill color={T.sm} bg={T.smBg} size={7}>New</Pill>}
                   {proj.status==='Upcoming' && <Pill color={T.upcoming} bg={T.upBg} size={7}>Upcoming</Pill>}
                 </div>
               </div>
@@ -1106,6 +1115,7 @@ function ProjectIndex({ projects, team, editMode, onUpdateProject, onUpdateContr
               {/* Status + type — editable in edit mode */}
               {editMode ? (
                 <div style={{ display:'flex', gap:4, flexShrink:0 }}>
+                  <Sel value={proj.priority||''} options={PRIORITY_OPTS} onChange={val => onUpdateProject(proj.id, { priority: val })} />
                   <Sel value={proj.projType||'billable'} options={PROJ_TYPE_OPTS} onChange={val => onUpdateProject(proj.id, { projType: val })} />
                   <Sel value={proj.status} options={STATUS_OPTS} onChange={val => onUpdateProject(proj.id, { status: val })} />
                 </div>
