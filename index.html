@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Space at 9/2 — Resource Intelligence</title>
+<title>The Space At 9/2 — Resource Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -83,7 +83,25 @@ const T = {
 /* ═══════════════════════════════════════════════════════════════
    EDIT OPTION LISTS
 ═══════════════════════════════════════════════════════════════ */
-const STATUS_OPTS  = ['Yet to Begin','Awaiting Brief','Kick-Off','Team Allocation','In Progress','In Review','In Sampling','In Production','In Development','On Hold','Stalled','Handover Pending','Delivered','Closed'];
+const STATUS_OPTS   = ['Yet to Begin','Awaiting Brief','Kick-Off','Team Allocation','In Progress','In Review','In Sampling','In Production','In Development','On Hold','Stalled','Handover Pending','Delivered','Closed'];
+const PROJ_TYPE_OPTS = [
+  ['billable',      'Billable Project'],
+  ['studio_growth', 'Studio Growth'],
+  ['personal',      'Personal Project'],
+];
+/* Four-state workload signal — replaces effort labels in the UI */
+const SIGNAL_OPTS = [
+  ['not_active', '⚪ Quiet'],
+  ['active',     '🟢 Steady'],
+  ['stretched',  '🟡 Heavy'],
+  ['bottleneck', '🔴 Critical'],
+];
+const SIGNAL_BL    = { not_active: 0, active: 20, stretched: 32, bottleneck: 45 };
+const SIGNAL_COLOR = { not_active: '#ABA49C', active: '#4E7A5A', stretched: '#C9A96E', bottleneck: '#B24B43' };
+const SIGNAL_BG    = { not_active: '#EDEBE5', active: '#EBF3EC', stretched: '#FBF5E6', bottleneck: '#F9EEEC' };
+const SIGNAL_LABEL = { not_active: 'Quiet', active: 'Steady', stretched: 'Heavy', bottleneck: 'Critical' };
+const SIGNAL_ICON  = { not_active: '⚪', active: '🟢', stretched: '🟡', bottleneck: '🔴' };
+
 const EFFORT_OPTS  = [
   ['none','None'], ['very_low','Very Low'], ['low','Low'],
   ['medium','Moderate'], ['high','High'], ['critical','Critical'],
@@ -118,7 +136,7 @@ const EFFORT_BL    = { none:0, very_low:6, low:11, medium:20, high:32, critical:
    below. Everyone's browser will reload from the new defaults
    automatically on their next visit.
 ───────────────────────────────────────────────────────────── */
-const DATA_VERSION = 2;
+const DATA_VERSION = 3;
 
 /* ─────────────────────────────────────────────────────────────
    JSONBIN CONFIG — paste your credentials from jsonbin.io here
@@ -159,164 +177,160 @@ const STATUS_MX = {
    PROJECT DATA
 ═══════════════════════════════════════════════════════════════ */
 const INITIAL_PROJECTS = [
-  // ── ON HOLD / CLOSED ─────────────────────────────────────────
+  // ── BILLABLE ──────────────────────────────────────────────────
   {
-    id:'divya', name:'Divya Sheth', category:'Branding & VI', status:'On Hold',
+    id:'divya', name:'Divya Sheth', category:'Branding & VI', status:'On Hold', projType:'billable',
     contributors:{}, assignedMembers:['mugdha','shristi'],
   },
   {
-    id:'cecilia_art', name:'Cecilia Ramos', category:'Art Exhibit', status:'Closed',
+    id:'cecilia_art', name:'Cecilia Ramos', category:'Art Exhibit', status:'Closed', projType:'billable',
     contributors:{}, assignedMembers:['mugdha','meghna','shristi'],
   },
   {
-    id:'odyssey', name:'Odyssey', category:'Brand Strategy', status:'Research',
+    id:'odyssey', name:'Odyssey', category:'Brand Strategy', status:'Research', projType:'billable',
     contributors:{
-      anushka: { type:'strategy',    effort:'medium', bl:18 },
+      anushka: { type:'strategy',    effort:'medium', bl:20 },
       meghna:  { type:'design_work', effort:'none',   bl:0, designOnHold:true },
     },
     assignedMembers:['anushka','sakhi','meghna'], notActive:['sakhi'],
   },
-  // ── PRODUCTION / MINIMAL ──────────────────────────────────────
   {
-    id:'cecilia_pkg', name:'Cecilia Ramos', category:'Packaging', status:'Production',
+    id:'cecilia_pkg', name:'Cecilia Ramos', category:'Packaging', status:'Production', projType:'billable',
     contributors:{
-      mugdha: { type:'design_work', effort:'very_low', bl:5 },
-      meghna: { type:'design_work', effort:'very_low', bl:5 },
+      mugdha: { type:'design_work', effort:'very_low', bl:6 },
+      meghna: { type:'design_work', effort:'very_low', bl:6 },
     },
     assignedMembers:['mugdha','meghna'],
   },
   {
-    id:'neha', name:"Neha's Collaterals", category:'Small Task', status:'Small Task',
-    contributors:{ disha: { type:'design_work', effort:'very_low', bl:8 } },
-    assignedMembers:['disha'],
-  },
-  // ── SLOW ──────────────────────────────────────────────────────
-  {
-    id:'willow', name:'Willow Barn', category:'Branding & Web', status:'Slow',
+    id:'willow', name:'Willow Barn', category:'Branding & Web', status:'Slow', projType:'billable',
     contributors:{
-      shruti:  { type:'design_work', effort:'medium',   bl:22 },
-      anushka: { type:'strategy',    effort:'very_low', bl:8  },
-      anahita: { type:'oversight',   effort:'very_low', bl:3  },
+      shruti:  { type:'design_work', effort:'medium',   bl:20 },
+      anushka: { type:'strategy',    effort:'very_low', bl:6  },
+      anahita: { type:'oversight',   effort:'very_low', bl:6  },
     },
     assignedMembers:['shruti','anushka','anahita'],
   },
-  // ── ACTIVE — CLIENT DESIGN ────────────────────────────────────
   {
-    id:'dev', name:'Dev Ratnam', category:'Branding & VI', status:'Active',
+    id:'dev', name:'Dev Ratnam', category:'Branding & VI', status:'Active', projType:'billable',
     contributors:{
-      shruti:  { type:'design_work', effort:'medium',   bl:22 },
+      shruti:  { type:'design_work', effort:'medium',   bl:20 },
       sakhi:   { type:'design_work', effort:'medium',   bl:20 },
       shristi: { type:'oversight',   effort:'medium',   bl:20 },
-      anushka: { type:'strategy',    effort:'low',      bl:10 },
-      anahita: { type:'oversight',   effort:'very_low', bl:2  },
+      anushka: { type:'strategy',    effort:'low',      bl:11 },
+      anahita: { type:'oversight',   effort:'very_low', bl:6  },
     },
     assignedMembers:['shruti','sakhi','shristi','anushka','anahita'],
   },
   {
     id:'borrowed_web', name:'Borrowed Earth', category:'Website Retainer — AI Gen',
-    status:'Active', isHighLoad:true,
+    status:'Active', isHighLoad:true, projType:'billable',
     contributors:{
-      disha:   { type:'design_work', effort:'high',      bl:35 },
-      shruti:  { type:'design_work', effort:'high',      bl:35 },
+      disha:   { type:'design_work', effort:'high',      bl:32 },
+      shruti:  { type:'design_work', effort:'high',      bl:32 },
       shristi: { type:'oversight',   effort:'medium',    bl:20 },
-      pragati: { type:'strategy',    effort:'low',       bl:10 },
-      anahita: { type:'oversight',   effort:'very_low',  bl:1  },
+      pragati: { type:'strategy',    effort:'low',       bl:11 },
+      anahita: { type:'oversight',   effort:'very_low',  bl:6  },
     },
     assignedMembers:['disha','shruti','shristi','pragati','anahita'],
   },
   {
-    id:'renn_web', name:'Studio Renn', category:'Website', status:'Active',
+    id:'renn_web', name:'Studio Renn', category:'Website', status:'Active', projType:'billable',
     contributors:{
       mugdha:  { type:'design_work', effort:'medium',   bl:20 },
       sakhi:   { type:'design_work', effort:'medium',   bl:20 },
-      anushka: { type:'strategy',    effort:'low',      bl:10 },
-      anahita: { type:'oversight',   effort:'very_low', bl:1  },
+      anushka: { type:'strategy',    effort:'low',      bl:11 },
+      anahita: { type:'oversight',   effort:'very_low', bl:6  },
     },
     assignedMembers:['mugdha','sakhi','anushka','anahita'],
   },
   {
-    id:'renn_brand', name:'Studio Renn', category:'Brand Comms', status:'Active',
+    id:'renn_brand', name:'Studio Renn', category:'Brand Comms', status:'Active', projType:'billable',
     contributors:{
-      sakhi:   { type:'design_work', effort:'low',      bl:16 },
-      anushka: { type:'strategy',    effort:'low',      bl:12 },
-      anahita: { type:'oversight',   effort:'very_low', bl:1  },
+      sakhi:   { type:'design_work', effort:'low',      bl:11 },
+      anushka: { type:'strategy',    effort:'low',      bl:11 },
+      anahita: { type:'oversight',   effort:'very_low', bl:6  },
     },
     assignedMembers:['sakhi','anushka','anahita'],
   },
   {
-    id:'bombaim', name:'Bombaim', category:'Retainer', status:'Active',
+    id:'bombaim', name:'Bombaim', category:'Retainer', status:'Active', projType:'billable',
     contributors:{
-      disha:   { type:'design_work', effort:'medium',   bl:18 },
-      anahita: { type:'oversight',   effort:'very_low', bl:1  },
+      disha:   { type:'design_work', effort:'medium',   bl:20 },
+      anahita: { type:'oversight',   effort:'very_low', bl:6  },
     },
     assignedMembers:['disha','anahita'],
   },
   {
-    id:'studio92_web', name:'Space at 9/2', category:'Website', status:'Active',
+    id:'borrowed_sm', name:'Borrowed Earth SM', category:'Social Media', status:'Active', projType:'billable',
     contributors:{
-      mugdha:  { type:'design_work', effort:'medium',   bl:18 },
-      shristi: { type:'design_work', effort:'medium',   bl:16 },
-      pragati: { type:'strategy',    effort:'very_low', bl:5  },
-      anahita: { type:'content',     effort:'very_low', bl:5  },
+      meghna:  { type:'design_work', effort:'high', bl:32 },
+      pragati: { type:'strategy',    effort:'high', bl:32 },
+    },
+    assignedMembers:['meghna','pragati'],
+  },
+  // ── STUDIO GROWTH ─────────────────────────────────────────────
+  {
+    id:'studio92_web', name:'Space at 9/2 Website', category:'Website', status:'Active', projType:'studio_growth',
+    contributors:{
+      mugdha:  { type:'design_work', effort:'medium',   bl:20 },
+      shristi: { type:'design_work', effort:'medium',   bl:20 },
+      pragati: { type:'strategy',    effort:'very_low', bl:6  },
+      anahita: { type:'content',     effort:'very_low', bl:6  },
     },
     assignedMembers:['mugdha','shristi','pragati','anahita'],
   },
   {
-    id:'ypo', name:'YPO', category:'Project', status:'Active',
-    contributors:{
-      mugdha:  { type:'design_work', effort:'medium',   bl:18 },
-      shristi: { type:'design_work', effort:'medium',   bl:18 },
-      anahita: { type:'oversight',   effort:'very_low', bl:1  },
-    },
-    assignedMembers:['mugdha','shristi','anahita'],
-  },
-  // ── ACTIVE — INTERNAL ─────────────────────────────────────────
-  {
-    id:'bd', name:'Business Development', category:'Internal', status:'Active',
-    contributors:{
-      pragati: { type:'strategy',    effort:'high',     bl:28 },
-      shristi: { type:'design_work', effort:'very_low', bl:8  },
-      anahita: { type:'strategy',    effort:'very_low', bl:4  },
-    },
-    assignedMembers:['pragati','shristi','anahita'],
-  },
-  {
-    id:'finance', name:'Finance', category:'Internal', status:'Active',
-    contributors:{
-      pragati: { type:'strategy',    effort:'high',     bl:30 },
-      anahita: { type:'oversight',   effort:'very_low', bl:3  },
-    },
-    assignedMembers:['pragati','anahita'],
-  },
-  // ── ACTIVE — SOCIAL MEDIA ─────────────────────────────────────
-  {
-    id:'borrowed_sm', name:'Borrowed Earth SM', category:'Social Media', status:'Active',
-    contributors:{
-      meghna:  { type:'design_work', effort:'medium_high', bl:25 },
-      pragati: { type:'strategy',    effort:'high',        bl:30 },
-    },
-    assignedMembers:['meghna','pragati'],
-  },
-  {
-    id:'space_sm', name:'Space at 9/2 SM', category:'Social Media', status:'Active', isNew:true,
+    id:'space_sm', name:'Space at 9/2 SM', category:'Social Media', status:'Active', isNew:true, projType:'studio_growth',
     contributors:{
       meghna:  { type:'design_work', effort:'medium',   bl:20 },
       sakhi:   { type:'design_work', effort:'medium',   bl:20 },
       mugdha:  { type:'design_work', effort:'upcoming', bl:0,  isUpcoming:true },
-      anahita: { type:'oversight',   effort:'very_low', bl:1  },
+      anahita: { type:'oversight',   effort:'very_low', bl:6  },
     },
     assignedMembers:['meghna','sakhi','mugdha','anahita'],
   },
-  // ── CONTENT & OPERATIONS ─────────────────────────────────────
   {
-    id:'space_newsletter', name:'Space Newsletter', category:'Content', status:'Active',
-    contributors:{ anahita: { type:'content', effort:'low', bl:6 } },
+    id:'studio_ops', name:'Studio Operations', category:'Internal', status:'Active', projType:'studio_growth',
+    contributors:{ anahita: { type:'operations', effort:'low', bl:11 } },
     assignedMembers:['anahita'],
   },
   {
-    id:'studio_ops', name:'Studio Operations', category:'Internal', status:'Active',
-    contributors:{ anahita: { type:'operations', effort:'low', bl:4 } },
+    id:'finance', name:'Finance', category:'Internal', status:'Active', projType:'studio_growth',
+    contributors:{
+      pragati: { type:'strategy',    effort:'high',     bl:32 },
+      anahita: { type:'oversight',   effort:'very_low', bl:6  },
+    },
+    assignedMembers:['pragati','anahita'],
+  },
+  {
+    id:'bd', name:'Business Development', category:'Internal', status:'Active', projType:'studio_growth',
+    contributors:{
+      pragati: { type:'strategy',    effort:'high',     bl:32 },
+      shristi: { type:'design_work', effort:'very_low', bl:6  },
+      anahita: { type:'strategy',    effort:'very_low', bl:6  },
+    },
+    assignedMembers:['pragati','shristi','anahita'],
+  },
+  {
+    id:'space_newsletter', name:'Space Newsletter', category:'Content', status:'Active', projType:'studio_growth',
+    contributors:{ anahita: { type:'content', effort:'low', bl:11 } },
     assignedMembers:['anahita'],
+  },
+  // ── PERSONAL ──────────────────────────────────────────────────
+  {
+    id:'ypo', name:'YPO', category:'Project', status:'Active', projType:'personal',
+    contributors:{
+      mugdha:  { type:'design_work', effort:'medium',   bl:20 },
+      shristi: { type:'design_work', effort:'medium',   bl:20 },
+      anahita: { type:'oversight',   effort:'very_low', bl:6  },
+    },
+    assignedMembers:['mugdha','shristi','anahita'],
+  },
+  {
+    id:'neha', name:"Neha's Collaterals", category:'Small Task', status:'Small Task', projType:'personal',
+    contributors:{ disha: { type:'design_work', effort:'very_low', bl:6 } },
+    assignedMembers:['disha'],
   },
 ];
 
@@ -325,17 +339,23 @@ const INITIAL_PROJECTS = [
 ═══════════════════════════════════════════════════════════════ */
 function computeWorkloads(projects, team) {
   const loads = {};
-  team.forEach(m => { loads[m.id] = { total:0, byProject:[] }; });
+  team.forEach(m => { loads[m.id] = { total:0, billable:0, studio:0, personal:0, byProject:[] }; });
   projects.forEach(proj => {
     const mx = STATUS_MX[proj.status] ?? 0;
+    const pt = proj.projType || 'billable';
     Object.entries(proj.contributors).forEach(([mid, c]) => {
       if (!loads[mid]) return;
       const isDesignHold = c.designOnHold || false;
-      const load = (c.isUpcoming || isDesignHold) ? 0 : Math.round(c.bl * mx);
+      const bl = c.signal ? (SIGNAL_BL[c.signal] ?? 0) : (EFFORT_BL[c.effort] ?? c.bl ?? 0);
+      const load = (c.isUpcoming || isDesignHold) ? 0 : Math.round(bl * mx);
       loads[mid].total += load;
+      if (pt === 'billable')      loads[mid].billable  += load;
+      else if (pt === 'studio_growth') loads[mid].studio += load;
+      else if (pt === 'personal') loads[mid].personal  += load;
       loads[mid].byProject.push({
         id:proj.id, name:proj.name, category:proj.category,
         load, type:c.type, effort:c.effort, status:proj.status,
+        projType: pt, signal: c.signal || null,
         isHighLoad:proj.isHighLoad||false, isNew:proj.isNew||false,
         isUpcoming: c.isUpcoming || (mx===0 && proj.status!=='Closed'),
         isDesignHold,
@@ -367,6 +387,17 @@ function getAvailability(member, pct) {
 function availColor(a)  { return a==='unavailable'?T.overload : a==='partial'?T.partial : T.avail; }
 function availBg(a)     { return a==='unavailable'?T.overBg   : a==='partial'?T.partBg  : T.availBg; }
 function availLabel(a)  { return a==='unavailable'?'Not Available' : a==='partial'?'Partially Available' : 'Available'; }
+
+/* ── PROJECT TYPE ───────────────────────────────────────────────── */
+function projTypeColor(t) {
+  return t==='billable' ? T.avail : t==='studio_growth' ? T.accent : T.rising;
+}
+function projTypeBg(t) {
+  return t==='billable' ? T.optBg : t==='studio_growth' ? T.accentBg : T.risingBg;
+}
+function projTypeLabel(t) {
+  return t==='billable' ? 'Billable' : t==='studio_growth' ? 'Studio Growth' : t==='personal' ? 'Personal' : 'Billable';
+}
 
 function getStatusColor(s) {
   const m = {
@@ -535,19 +566,37 @@ function Bar({ pct, h=2 }) {
   );
 }
 
+function StackedBar({ billable=0, studio=0, personal=0, h=4 }) {
+  const total = billable + studio + personal;
+  if (total === 0) return <div style={{ width:'100%', height:h, background:T.borderHair, borderRadius:1 }}/>;
+  const cap = Math.min(total, 100);
+  const bp = Math.round((billable / total) * cap);
+  const sp = Math.round((studio   / total) * cap);
+  const pp = Math.max(0, cap - bp - sp);
+  const over = Math.max(0, total - 100);
+  return (
+    <div style={{ width:'100%', height:h, background:T.borderHair, borderRadius:1, overflow:'hidden', display:'flex' }}>
+      {bp > 0 && <div style={{ width:`${bp}%`, height:'100%', background:T.avail, transition:'width 0.55s' }}/>}
+      {sp > 0 && <div style={{ width:`${sp}%`, height:'100%', background:T.accent, transition:'width 0.55s' }}/>}
+      {pp > 0 && <div style={{ width:`${pp}%`, height:'100%', background:T.rising, transition:'width 0.55s' }}/>}
+      {over > 0 && <div style={{ width:`${Math.min(over*0.4,12)}%`, height:'100%', background:T.overload, opacity:0.4 }}/>}
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════════════
    ADD-MEMBER ROW  (edit mode — inside expanded project)
 ═══════════════════════════════════════════════════════════════ */
 function AddMemberRow({ projId, team, currentIds, onAdd }) {
   const [mid,    setMid]    = useState('');
-  const [type,   setType]   = useState('design_work');
-  const [effort, setEffort] = useState('medium');
+  const [type,   setType]   = useState('vi_design');
+  const [signal, setSignal] = useState('on_track');
   const available = team.filter(m => !currentIds.includes(m.id));
   if (available.length === 0) return null;
 
   function commit() {
     if (!mid) return;
-    onAdd(projId, mid, { type, effort, bl: EFFORT_BL[effort] || 20 });
+    onAdd(projId, mid, { type, signal, effort: 'medium', bl: SIGNAL_BL[signal] || 20 });
     setMid('');
   }
 
@@ -555,7 +604,7 @@ function AddMemberRow({ projId, team, currentIds, onAdd }) {
     <div style={{ display:'flex', gap:6, alignItems:'center', marginTop:10, paddingTop:10, borderTop:`1px dashed ${T.borderHair}`, flexWrap:'wrap' }}>
       <Sel value={mid} options={[['','+ Person'], ...available.map(m=>[m.id, m.name.split(' ')[0]])]} onChange={setMid}/>
       <Sel value={type}   options={TYPE_OPTS}   onChange={setType}/>
-      <Sel value={effort} options={EFFORT_OPTS} onChange={setEffort}/>
+      <Sel value={signal} options={SIGNAL_OPTS} onChange={setSignal}/>
       <IBtn onClick={commit} style={{ background:T.accentBg, borderColor:T.accent, color:T.accent }}>Assign</IBtn>
     </div>
   );
@@ -637,7 +686,7 @@ function Masthead({ loads, view, setView, editMode, setEditMode, team, projects 
 
         <div style={{ flexShrink:0 }}>
           <div style={{ fontFamily:T.serif, fontSize:15, fontWeight:500, color:T.text1, letterSpacing:'0.01em' }}>
-            Space at 9/2
+            The Space At 9/2
           </div>
           <div style={{ fontFamily:T.sans, fontSize:8, letterSpacing:'0.2em', textTransform:'uppercase', color:T.text3, marginTop:2 }}>
             Resource Intelligence
@@ -720,30 +769,42 @@ function OverviewStrip({ loads, team }) {
 
   return (
     <div style={{ maxWidth:1520, margin:'0 auto', padding:'32px 48px 0' }}>
-      <Label>Team Capacity — Current State</Label>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+        <span style={{ fontFamily:T.sans, fontSize:9, fontWeight:600, letterSpacing:'0.2em', textTransform:'uppercase', color:T.text3 }}>Team Capacity — Current State</span>
+        <div style={{ display:'flex', gap:14, alignItems:'center' }}>
+          {[['billable','Billable',T.avail],['studio_growth','Studio Growth',T.accent],['personal','Personal',T.rising]].map(([,l,c])=>(
+            <div key={l} style={{ display:'flex', alignItems:'center', gap:5 }}>
+              <div style={{ width:8, height:8, borderRadius:2, background:c }}/>
+              <span style={{ fontFamily:T.sans, fontSize:8, color:T.text3 }}>{l}</span>
+            </div>
+          ))}
+        </div>
+      </div>
       <div style={{ display:'grid', gridTemplateColumns:`repeat(${members.length},1fr)`, gap:10 }}>
         {members.map(m => {
-          const pct   = Math.min(loads[m.id]?.total || 0, 150);
+          const d     = loads[m.id] || { total:0, billable:0, studio:0, personal:0, byProject:[] };
+          const pct   = Math.min(d.total, 150);
           const cat   = getCategory(pct);
           const avail = getAvailability(m, pct);
           const catC  = getCatColor(cat);
+          const billPct = d.billable;
+          const studPct = d.studio;
+          const persPct = d.personal;
 
           return (
             <div key={m.id} style={{
               background: T.surface,
               border: m.isFounder ? `1px solid ${T.accent}` : `1px solid ${T.border}`,
-              borderTop: m.isFounder ? `3px solid ${T.accent}` : `1px solid ${T.border}`,
-              borderRadius:6, padding:'16px 13px', cursor:'default',
+              borderTop: m.isFounder ? `3px solid ${T.accent}` : `3px solid ${projTypeColor(billPct >= studPct && billPct >= persPct ? 'billable' : studPct >= persPct ? 'studio_growth' : 'personal')}`,
+              borderRadius:6, padding:'16px 13px',
               transition:'box-shadow 0.2s',
             }}
             onMouseEnter={e=>{ e.currentTarget.style.boxShadow='0 5px 18px rgba(0,0,0,0.07)'; }}
             onMouseLeave={e=>{ e.currentTarget.style.boxShadow='none'; }}
             >
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-                <span style={{
-                  display:'inline-block', width:5, height:5, borderRadius:'50%',
-                  background: m.city==='Calcutta'?'#9B8BBF' : m.city==='Studio'?T.accent : '#C4894A',
-                }}/>
+                <span style={{ display:'inline-block', width:5, height:5, borderRadius:'50%',
+                  background: m.city==='Calcutta'?'#9B8BBF' : m.city==='Studio'?T.accent : '#C4894A' }}/>
                 <span style={{ fontFamily:T.sans, fontSize:7, fontWeight:700, letterSpacing:'0.06em', color:availColor(avail) }}>
                   {avail==='unavailable' ? '○ FULL' : avail==='partial' ? '◑ PARTIAL' : '● AVAIL'}
                 </span>
@@ -753,9 +814,25 @@ function OverviewStrip({ loads, team }) {
                 {pct}%
               </div>
 
-              <Bar pct={pct} h={2}/>
+              <StackedBar billable={billPct} studio={studPct} personal={persPct} h={3}/>
 
-              <div style={{ marginTop:10 }}>
+              {/* Type breakdown */}
+              <div style={{ display:'flex', flexDirection:'column', gap:3, marginTop:8, marginBottom:8 }}>
+                {billPct > 0 && <div style={{ display:'flex', justifyContent:'space-between' }}>
+                  <span style={{ fontFamily:T.sans, fontSize:7, color:T.avail }}>Billable</span>
+                  <span style={{ fontFamily:T.sans, fontSize:7, fontWeight:600, color:T.avail }}>{billPct}</span>
+                </div>}
+                {studPct > 0 && <div style={{ display:'flex', justifyContent:'space-between' }}>
+                  <span style={{ fontFamily:T.sans, fontSize:7, color:T.accent }}>Studio</span>
+                  <span style={{ fontFamily:T.sans, fontSize:7, fontWeight:600, color:T.accent }}>{studPct}</span>
+                </div>}
+                {persPct > 0 && <div style={{ display:'flex', justifyContent:'space-between' }}>
+                  <span style={{ fontFamily:T.sans, fontSize:7, color:T.rising }}>Personal</span>
+                  <span style={{ fontFamily:T.sans, fontSize:7, fontWeight:600, color:T.rising }}>{persPct}</span>
+                </div>}
+              </div>
+
+              <div style={{ marginTop:8, paddingTop:8, borderTop:`1px solid ${T.borderHair}` }}>
                 <div style={{ fontFamily:T.sans, fontSize:11, fontWeight:600, color:T.text1 }}>
                   {m.name.split(' ')[0]}
                 </div>
@@ -764,14 +841,12 @@ function OverviewStrip({ loads, team }) {
                 </div>
               </div>
 
-              <div style={{ display:'flex', gap:4, marginTop:9, flexWrap:'wrap' }}>
+              <div style={{ display:'flex', gap:4, marginTop:8, flexWrap:'wrap' }}>
                 <span style={{ fontFamily:T.sans, fontSize:8, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:catC }}>
                   {getCatLabel(cat)}
                 </span>
                 {m.isCritical && (
-                  <span style={{ fontFamily:T.sans, fontSize:7, fontWeight:700, padding:'1px 4px', borderRadius:1, background:T.critBg, color:T.critical, letterSpacing:'0.05em', textTransform:'uppercase', border:`1px solid ${T.critical}20` }}>
-                    CR
-                  </span>
+                  <span style={{ fontFamily:T.sans, fontSize:7, fontWeight:700, padding:'1px 4px', borderRadius:1, background:T.critBg, color:T.critical, letterSpacing:'0.05em', textTransform:'uppercase', border:`1px solid ${T.critical}20` }}>CR</span>
                 )}
               </div>
             </div>
@@ -873,8 +948,9 @@ function TeamWorkload({ loads, view, team, projects, editMode }) {
                         borderBottom:i<data.byProject.length-1?`1px solid ${T.borderHair}`:'none',
                         opacity: (proj.isUpcoming || proj.isDesignHold) ? 0.55 : 1,
                       }}>
-                        <div>
-                          <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', marginBottom:3 }}>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', marginBottom:4 }}>
+                            <div style={{ width:7, height:7, borderRadius:2, background:projTypeColor(proj.projType), flexShrink:0 }} title={projTypeLabel(proj.projType)}/>
                             <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:600, color:T.text1 }}>{proj.name}</span>
                             <span style={{ fontFamily:T.sans, fontSize:9, color:T.text3 }}>{proj.category}</span>
                             {proj.isHighLoad   && <Pill color={T.overload} bg={T.overBg} size={7}>High Load</Pill>}
@@ -882,14 +958,15 @@ function TeamWorkload({ loads, view, team, projects, editMode }) {
                             {proj.isUpcoming   && <Pill color={T.upcoming} bg={T.upBg}   size={7}>Upcoming</Pill>}
                             {proj.isDesignHold && <Pill color={T.text3}    bg={T.bgAlt}  size={7}>On Hold — Design</Pill>}
                           </div>
-                          <div style={{ display:'flex', gap:8 }}>
-                            <span style={{ fontFamily:T.sans, fontSize:9, fontWeight:600, color:effortColor(proj.effort) }}>
-                              {effortLabel(proj.effort)} Effort
-                            </span>
-                            <span style={{ fontFamily:T.sans, fontSize:9, color:T.text3 }}>{typeLabel(proj.type)}</span>
-                          </div>
+                          {proj.signal && !proj.isUpcoming && !proj.isDesignHold && (
+                            <span style={{
+                              fontFamily:T.sans, fontSize:8, fontWeight:600,
+                              color: SIGNAL_COLOR[proj.signal], background: SIGNAL_BG[proj.signal],
+                              padding:'2px 7px', borderRadius:3, border:`1px solid ${SIGNAL_COLOR[proj.signal]}22`,
+                            }}>{SIGNAL_ICON[proj.signal]} {SIGNAL_LABEL[proj.signal]}</span>
+                          )}
                         </div>
-                        <span style={{ fontFamily:T.sans, fontSize:13, fontWeight:700, color:(proj.isUpcoming||proj.isDesignHold)?T.text3:getCatColor(getCategory(pct)), fontVariantNumeric:'tabular-nums' }}>
+                        <span style={{ fontFamily:T.sans, fontSize:13, fontWeight:700, color:(proj.isUpcoming||proj.isDesignHold)?T.text3:getCatColor(getCategory(pct)), fontVariantNumeric:'tabular-nums', marginLeft:10, flexShrink:0 }}>
                           {(proj.isUpcoming||proj.isDesignHold) ? '—' : `+${proj.load}`}
                         </span>
                       </div>
@@ -956,22 +1033,18 @@ function ProjectIndex({ projects, team, editMode, onUpdateProject, onUpdateContr
     return T.text3;
   };
 
-  return (
-    <div style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:8, padding:'28px 24px' }}>
-      <Label right={`${projects.filter(p=>p.status==='Active').length} active · ${projects.filter(p=>p.isNew).length} new`}>
-        Project Index
-      </Label>
+  const billableProjects    = sorted.filter(p => (p.projType||'billable') === 'billable');
+  const studioProjects      = sorted.filter(p => p.projType === 'studio_growth');
+  const personalProjects    = sorted.filter(p => p.projType === 'personal');
 
-      {editMode && <AddProjectRow onAdd={onAddProject}/>}
-
-      {sorted.map((proj, i) => {
+  const renderProject = (proj, i, arr) => {
         const mx        = STATUS_MX[proj.status] ?? 0;
         const load      = Object.values(proj.contributors).reduce((s,c)=>s+Math.round(c.bl*mx),0);
         const contribs  = Object.entries(proj.contributors);
         const isActive  = ['In Progress','In Development','In Review','In Sampling','In Production','Stalled','Handover Pending','Kick-Off','Team Allocation','Awaiting Brief','Active','Slow','Production','Small Task','Research'].includes(proj.status);
         const isExp     = exp === proj.id;
         const sColor    = getStatusColor(proj.status);
-        const last      = i===sorted.length-1;
+        const last      = i===arr.length-1;
 
         return (
           <div key={proj.id} style={{
@@ -1030,14 +1103,12 @@ function ProjectIndex({ projects, team, editMode, onUpdateProject, onUpdateContr
                 style={{ fontFamily:T.sans, fontSize:11, fontWeight:700, color:T.text2, minWidth:24, textAlign:'right', fontVariantNumeric:'tabular-nums', flexShrink:0, cursor:isActive?'pointer':'default' }}
               >{load}</span>
 
-              {/* Status — editable dropdown in edit mode */}
+              {/* Status + type — editable in edit mode */}
               {editMode ? (
-                <Sel
-                  value={proj.status}
-                  options={STATUS_OPTS}
-                  onChange={val => onUpdateProject(proj.id, { status: val })}
-                  style={{ flexShrink:0 }}
-                />
+                <div style={{ display:'flex', gap:4, flexShrink:0 }}>
+                  <Sel value={proj.projType||'billable'} options={PROJ_TYPE_OPTS} onChange={val => onUpdateProject(proj.id, { projType: val })} />
+                  <Sel value={proj.status} options={STATUS_OPTS} onChange={val => onUpdateProject(proj.id, { status: val })} />
+                </div>
               ) : (
                 <span
                   onClick={() => isActive && setExp(isExp?null:proj.id)}
@@ -1051,15 +1122,18 @@ function ProjectIndex({ projects, team, editMode, onUpdateProject, onUpdateContr
               <div style={{ marginTop:9, padding:'11px 13px', background:T.bg, borderRadius:5, border:`1px solid ${T.borderHair}` }}>
                 {contribs.map(([mid, c]) => {
                   const mem  = team.find(t=>t.id===mid);
-                  const cld  = c.isUpcoming ? 0 : Math.round(c.bl*(STATUS_MX[proj.status]??0));
+                  const bl   = c.signal ? (SIGNAL_BL[c.signal]??0) : (EFFORT_BL[c.effort]??c.bl??0);
+                  const cld  = c.isUpcoming ? 0 : Math.round(bl*(STATUS_MX[proj.status]??0));
                   return (
                     <div key={mid} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                        <span style={{ fontFamily:T.sans, fontSize:9, fontWeight:700, color:effortColor(c.effort) }}>
-                          {effortLabel(c.effort)}
-                        </span>
+                      <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                         <span style={{ fontFamily:T.sans, fontSize:11, color:T.text1 }}>{mem?.name}</span>
                         <span style={{ fontFamily:T.sans, fontSize:9, color:T.text3 }}>{typeLabel(c.type)}</span>
+                        {c.signal && !c.isUpcoming && (
+                          <span style={{ fontFamily:T.sans, fontSize:8, fontWeight:600, color:SIGNAL_COLOR[c.signal], background:SIGNAL_BG[c.signal], padding:'1px 6px', borderRadius:3 }}>
+                            {SIGNAL_ICON[c.signal]} {SIGNAL_LABEL[c.signal]}
+                          </span>
+                        )}
                         {c.isUpcoming && <Pill color={T.upcoming} bg={T.upBg} size={7}>Upcoming</Pill>}
                       </div>
                       <span style={{ fontFamily:T.sans, fontSize:10, fontWeight:600, color:T.text2 }}>
@@ -1088,7 +1162,9 @@ function ProjectIndex({ projects, team, editMode, onUpdateProject, onUpdateContr
                     </div>
                     {contribs.map(([mid, c]) => {
                       const mem = team.find(t=>t.id===mid);
-                      const cld = c.isUpcoming || c.designOnHold ? 0 : Math.round(c.bl*(STATUS_MX[proj.status]??0));
+                      const bl  = c.signal ? (SIGNAL_BL[c.signal]??0) : (EFFORT_BL[c.effort]??c.bl??0);
+                      const cld = c.isUpcoming || c.designOnHold ? 0 : Math.round(bl*(STATUS_MX[proj.status]??0));
+                      const sig = c.signal || null;
                       return (
                         <div key={mid} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:7, gap:8 }}>
                           <span style={{ fontFamily:T.sans, fontSize:11, fontWeight:600, color:T.text1, flex:1, minWidth:0 }}>
@@ -1096,23 +1172,28 @@ function ProjectIndex({ projects, team, editMode, onUpdateProject, onUpdateContr
                             <span style={{ fontFamily:T.sans, fontSize:9, color:T.text3, fontWeight:400, marginLeft:6 }}>{typeLabel(c.type)}</span>
                           </span>
                           <div style={{ display:'flex', gap:6, alignItems:'center', flexShrink:0 }}>
-                            <Sel
-                              value={c.type}
-                              options={TYPE_OPTS}
-                              onChange={val => onUpdateContributor(proj.id, mid, { type: val })}
-                            />
-                            <Sel
-                              value={c.effort}
-                              options={EFFORT_OPTS}
-                              onChange={val => onUpdateContributor(proj.id, mid, { effort: val, bl: EFFORT_BL[val] ?? c.bl })}
-                            />
+                            <Sel value={c.type} options={TYPE_OPTS} onChange={val => onUpdateContributor(proj.id, mid, { type: val })} />
+                            {/* Signal picker — four buttons */}
+                            <div style={{ display:'flex', gap:3 }}>
+                              {['not_active','active','stretched','bottleneck'].map(s => (
+                                <button key={s} onClick={() => onUpdateContributor(proj.id, mid, { signal: s, effort: s==='bottleneck'?'critical':s==='stretched'?'high':'medium', bl: SIGNAL_BL[s] })}
+                                  title={SIGNAL_LABEL[s]}
+                                  style={{
+                                    padding:'3px 8px', borderRadius:3, cursor:'pointer', fontSize:9, fontFamily:T.sans, fontWeight:600,
+                                    border: `1px solid ${sig===s ? SIGNAL_COLOR[s] : T.border}`,
+                                    background: sig===s ? SIGNAL_BG[s] : 'transparent',
+                                    color: sig===s ? SIGNAL_COLOR[s] : T.text3,
+                                    letterSpacing:'0.03em',
+                                  }}>
+                                  {SIGNAL_ICON[s]} {SIGNAL_LABEL[s]}
+                                </button>
+                              ))}
+                              {sig && <button onClick={() => onUpdateContributor(proj.id, mid, { signal: null })} title="Clear" style={{ padding:'3px 6px', borderRadius:3, cursor:'pointer', fontSize:9, fontFamily:T.sans, color:T.text3, border:`1px solid ${T.border}`, background:'transparent' }}>✕</button>}
+                            </div>
                             <span style={{ fontFamily:T.sans, fontSize:10, fontWeight:700, color:T.text2, minWidth:28, textAlign:'right' }}>
                               {cld > 0 ? `+${cld}` : '—'}
                             </span>
-                            <IBtn
-                              onClick={()=>onUpdateContributor(proj.id, mid, null)}
-                              danger title="Remove from project"
-                            >×</IBtn>
+                            <IBtn onClick={()=>onUpdateContributor(proj.id, mid, null)} danger title="Remove from project">×</IBtn>
                           </div>
                         </div>
                       );
@@ -1139,7 +1220,44 @@ function ProjectIndex({ projects, team, editMode, onUpdateProject, onUpdateContr
             )}
           </div>
         );
-      })}
+  }; // end renderProject
+
+  const sectionHead = (label, count, color=T.text3) => (
+    <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14, marginTop:4 }}>
+      <div style={{ width:8, height:8, borderRadius:2, background:color, flexShrink:0 }}/>
+      <span style={{ fontFamily:T.sans, fontSize:8, fontWeight:700, letterSpacing:'0.2em', textTransform:'uppercase', color }}>{label}</span>
+      <span style={{ fontFamily:T.sans, fontSize:8, color:T.text3 }}>· {count}</span>
+      <div style={{ flex:1, height:1, background:T.borderHair }}/>
+    </div>
+  );
+
+  return (
+    <div style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:8, padding:'28px 24px' }}>
+      <Label right={`${billableProjects.filter(p=>['Active','In Progress','In Development'].includes(p.status)).length} active billable`}>
+        Project Index
+      </Label>
+
+      {editMode && <AddProjectRow onAdd={onAddProject}/>}
+
+      {/* Billable */}
+      {sectionHead('Billable Projects', billableProjects.length, T.avail)}
+      {billableProjects.map((proj, i) => renderProject(proj, i, billableProjects))}
+
+      {/* Studio Growth */}
+      {studioProjects.length > 0 && (
+        <div style={{ marginTop:22 }}>
+          {sectionHead('Studio Growth', studioProjects.length, T.accent)}
+          {studioProjects.map((proj, i) => renderProject(proj, i, studioProjects))}
+        </div>
+      )}
+
+      {/* Personal */}
+      {personalProjects.length > 0 && (
+        <div style={{ marginTop:22 }}>
+          {sectionHead('Personal Projects', personalProjects.length, T.rising)}
+          {personalProjects.map((proj, i) => renderProject(proj, i, personalProjects))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1366,7 +1484,11 @@ function App() {
         delete c[memberId];
         return { ...p, contributors:c, assignedMembers:(p.assignedMembers||[]).filter(id=>id!==memberId) };
       }
-      c[memberId] = { ...(c[memberId]||{}), ...patch };
+      // Keep bl in sync — signal takes priority, then effort
+      const merged = { ...(c[memberId]||{}), ...patch };
+      if (patch.signal !== undefined) merged.bl = patch.signal ? (SIGNAL_BL[patch.signal] ?? merged.bl) : merged.bl;
+      else if (patch.effort) merged.bl = EFFORT_BL[patch.effort] ?? merged.bl;
+      c[memberId] = merged;
       const am = (p.assignedMembers||[]).includes(memberId)
         ? p.assignedMembers : [...(p.assignedMembers||[]), memberId];
       return { ...p, contributors:c, assignedMembers:am };
@@ -1413,7 +1535,6 @@ function App() {
         editMode={editMode} setEditMode={setEditMode}
         team={team} projects={projects}
       />
-      <OverviewStrip loads={loads} team={team}/>
 
       <div style={{
         maxWidth:1520, margin:'0 auto', padding:'20px 48px',
